@@ -1,0 +1,45 @@
+// ======================================================
+// programa.mil - Demostracion de MiLenguaje
+// Moises Moncada - IS-505
+// ======================================================
+
+// 1. Declaracion de variables (sin valor inicial)
+var:int edad;
+var:str nombre;
+var:bool activo;
+var:float promedio;
+
+// 2. Asignacion de variables
+edad = 25;
+nombre = "Moises";
+activo = true;
+promedio = 3.5;
+
+// 3. Declaracion con valor inicial (los 4 tipos)
+var:int contador = 0;
+var:str mensaje = "Bienvenido";
+var:bool proceso = false;
+var:float porcentaje = 85.5;
+
+// 4. Expresiones aritmeticas (respetan la precedencia)
+contador = contador + 1;
+var:int resultado = (edad + 5) * 2 - 10 / 2;
+var:float nota_final = promedio * 2 + porcentaje / 100;
+var:float convertido = edad;      // int -> float (promocion permitida)
+
+// 5. Concatenacion de cadenas
+var:str saludo = mensaje + ", " + nombre + "!";
+
+// 6. Expresiones relacionales y logicas
+var:bool mayor_edad = edad >= 18;
+var:bool aprobado = nota_final > 7.0 && activo;
+proceso = !proceso || contador == 0;
+
+// 7. Salida
+print(saludo);
+print(resultado);
+print(nota_final);
+print(mayor_edad);
+print(aprobado);
+print(proceso);
+print(convertido);

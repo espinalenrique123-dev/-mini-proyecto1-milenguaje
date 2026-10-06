@@ -1,0 +1,5 @@
+// Errores lexicos: caracteres que no pertenecen al lenguaje
+var:int edad = 25;
+var:int precio = 10 # 2;
+var:str texto = "sin cerrar;
+var:float total @ = 5.0;

@@ -1,0 +1,13 @@
+// Errores semanticos: la sintaxis es correcta pero el significado no
+var:int edad = 25;
+var:str nombre = "Moises";
+var:int edad = 30;              // redeclaracion
+total = 100;                    // variable no declarada
+var:int numero = "hola";        // str -> int incompatible
+var:int entero = 3.75;          // float -> int incompatible
+var:bool bandera = edad + 1;    // int -> bool incompatible
+var:int x = nombre * 2;         // str * int no existe
+var:int y = edad / 0;           // division entre cero
+var:bool z = edad && true;      // && necesita bool
+var:float sin_valor;
+print(sin_valor + 1.0);         // advertencia: no inicializada

@@ -1,0 +1,7 @@
+// Error en tiempo de ejecucion: solo se detecta al ejecutar
+var:int a = 10;
+var:int b = 5;
+b = b - 5;
+print(a);
+print(a / b);     // b vale 0 -> division entre cero
+print(b);

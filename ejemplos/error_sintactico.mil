@@ -1,0 +1,7 @@
+// Errores sintacticos: la estructura no respeta la gramatica
+var:int edad = 25
+var:str nombre = "Ana";
+var int x;
+nombre = ;
+var:float promedio = (3.5 + 2;
+print(nombre);
