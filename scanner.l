@@ -36,6 +36,9 @@ LETRA    [a-zA-Z_]
  /* ---------- Palabras reservadas (antes que ID) ---------- */
 "var"                   { TOKEN(VAR, "VAR"); }
 "print"                 { TOKEN(PRINT, "PRINT"); }
+"func"                  { TOKEN(FUNC, "FUNC"); }
+"return"                { TOKEN(RETURN, "RETURN"); }
+"void"                  { yylval.tipo = T_VOID; TOKEN(VOID, "VOID"); }
 "int"                   { yylval.tipo = T_INT;   TOKEN(TIPO, "TIPO"); }
 "float"                 { yylval.tipo = T_FLOAT; TOKEN(TIPO, "TIPO"); }
 "str"                   { yylval.tipo = T_STR;   TOKEN(TIPO, "TIPO"); }
@@ -74,6 +77,9 @@ LETRA    [a-zA-Z_]
 "!"                     { TOKEN('!', "NOT"); }
 "("                     { TOKEN('(', "PAR_ABRE"); }
 ")"                     { TOKEN(')', "PAR_CIERRA"); }
+"{"                     { TOKEN('{', "LLAVE_ABRE"); }
+"}"                     { TOKEN('}', "LLAVE_CIERRA"); }
+","                     { TOKEN(',', "COMA"); }
 
  /* ---------- Cualquier otro caracter es un error lexico ---------- */
 .                       { printf("  [X] Error lexico (linea %d): caracter no reconocido '%s'\n", yylineno, yytext);

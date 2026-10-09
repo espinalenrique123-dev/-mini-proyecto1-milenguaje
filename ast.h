@@ -6,7 +6,7 @@
 #define AST_H
 
 /* Tipos de dato del lenguaje */
-typedef enum { T_INT, T_FLOAT, T_STR, T_BOOL, T_NINGUNO, T_ERROR } TipoDato;
+typedef enum { T_INT, T_FLOAT, T_STR, T_BOOL, T_VOID, T_NINGUNO, T_ERROR } TipoDato;
 
 /* Clases de nodo del AST */
 typedef enum {
@@ -20,7 +20,11 @@ typedef enum {
     N_LIT_BOOL,     /* true / false                       */
     N_ID,           /* uso de una variable                */
     N_OP_BINARIA,   /* a + b, a < b, a && b ...           */
-    N_OP_UNARIA     /* -a, !a                             */
+    N_OP_UNARIA,    /* -a, !a                             */
+    N_FUNCION,      /* func f(a:int):int { ... }          */
+    N_PARAMETRO,    /* a:int  (dentro de una funcion)     */
+    N_RETORNO,      /* return expr;  /  return;           */
+    N_LLAMADA       /* f(x, y)  (expresion o sentencia)   */
 } ClaseNodo;
 
 typedef struct Nodo {
@@ -33,7 +37,11 @@ typedef struct Nodo {
     double fval;         /* valor de literal float                  */
     char *sval;          /* valor de literal str                    */
     struct Nodo *a, *b;  /* hijos                                   */
-    struct Nodo *sig;    /* siguiente sentencia (solo en listas)    */
+                         /* FUNCION: a = parametros, b = cuerpo     */
+                         /* LLAMADA: a = argumentos                 */
+    struct Nodo *sig;    /* siguiente elemento (sentencias, params, */
+                         /* argumentos)                             */
+    void *sim;           /* simbolo resuelto por el semantico       */
 } Nodo;
 
 /* Constructores (los llama el parser) */
@@ -49,6 +57,11 @@ Nodo *ast_bool(int v, int linea);
 Nodo *ast_id(char *nombre, int linea);
 Nodo *ast_binaria(const char *op, Nodo *izq, Nodo *der, int linea);
 Nodo *ast_unaria(const char *op, Nodo *e, int linea);
+Nodo *ast_funcion(char *nombre, Nodo *params, TipoDato ret, Nodo *cuerpo, int linea);
+Nodo *ast_parametro(char *nombre, TipoDato t, int linea);
+Nodo *ast_retorno(Nodo *expr, int linea);
+Nodo *ast_llamada(char *nombre, Nodo *args, int linea);
+int  ast_contar_lista(Nodo *lista);
 
 /* Utilidades */
 const char *nombre_tipo(TipoDato t);

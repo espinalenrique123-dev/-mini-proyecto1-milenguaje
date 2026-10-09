@@ -1,0 +1,28 @@
+// Errores semanticos con funciones
+func sumar(a:int, b:int):int {
+    return a + b;
+}
+
+func saludar(nombre:str):void {
+    print("Hola " + nombre);
+}
+
+func doble(n:int):int {
+    var:int r = n * 2;               // falta el return
+}
+
+func mal_tipo():int {
+    return "texto";                  // devuelve str en vez de int
+}
+
+func vacia():void {
+    return 5;                        // una funcion void no devuelve valor
+}
+
+var:int a = sumar(1);                // faltan argumentos
+var:int b = sumar(1, "dos");         // argumento de tipo incorrecto
+var:int c = restar(5, 2);            // funcion no declarada
+var:int d = saludar("Ana");          // void no tiene valor
+print(n);                            // 'n' solo existe dentro de doble()
+return 0;                            // return fuera de una funcion
+func sumar(x:int):int { return x; }  // funcion repetida

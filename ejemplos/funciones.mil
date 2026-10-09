@@ -1,0 +1,55 @@
+// ======================================================
+// funciones.mil - Funciones en MiLenguaje
+// Moises Moncada - IS-505 - Semana 7
+// ======================================================
+
+// 1. Funcion con parametros que devuelve un valor
+func sumar(a:int, b:int):int {
+    return a + b;
+}
+
+// 2. Funcion con variable local y conversion int -> float
+func promedio(x:int, y:int, z:int):float {
+    var:float total = x + y + z;
+    return total / 3;
+}
+
+// 3. Funcion que devuelve bool
+func es_mayor(edad:int):bool {
+    return edad >= 18;
+}
+
+// 4. Funcion que devuelve texto
+func saludo(nombre:str):str {
+    return "Hola, " + nombre + "!";
+}
+
+// 5. Funcion void (no devuelve nada): solo imprime
+func mostrar(mensaje:str):void {
+    print("[log] " + mensaje);
+    return;
+}
+
+// 6. Una funcion que llama a otra
+func doble_suma(a:int, b:int):int {
+    var:int s = sumar(a, b);
+    return s * 2;
+}
+
+// ---------- Programa principal ----------
+var:int x = 30;
+var:int y = 20;
+
+// Llamada dentro de una expresion (como el ejemplo del profesor)
+var:int resultado = sumar(x, y) * 2 / 4 - 3;
+
+mostrar("resultado calculado");
+print(resultado);
+
+print(promedio(8, 9, 10));
+print(es_mayor(x));
+print(saludo("Moises"));
+print(doble_suma(5, 7));
+
+// Llamadas anidadas: el resultado de una funcion es argumento de otra
+print(sumar(sumar(1, 2), sumar(3, 4)));

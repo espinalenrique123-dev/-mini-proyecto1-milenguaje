@@ -39,7 +39,8 @@ Nodo *raiz = NULL;
 }
 
 /* Los textos entre comillas aparecen en los mensajes de error */
-%token VAR "var" PRINT "print"
+%token VAR "var" PRINT "print" FUNC "func" RETURN "return"
+%token <tipo> VOID "void"
 %token <tipo> TIPO "tipo de dato"
 %token <sval> ID "identificador" STR_LIT "cadena"
 %token <ival> INT_LIT "entero" BOOL_LIT "booleano"
@@ -47,6 +48,8 @@ Nodo *raiz = NULL;
 %token EQ "==" NE "!=" LE "<=" GE ">=" AND "&&" OR "||"
 
 %type <nodo> lista_sentencias sentencia declaracion asignacion impresion expr
+%type <nodo> funcion parametros_opt parametros parametro cuerpo retorno llamada argumentos_opt argumentos
+%type <tipo> tipo_retorno
 
 /* Precedencia: de menor (arriba) a mayor (abajo) */
 %left OR
@@ -74,7 +77,11 @@ sentencia
     : declaracion
     | asignacion
     | impresion
+    | funcion
+    | retorno
+    | llamada ';'                       { $$ = $1; }
     | error ';'                         { yyerrok; $$ = NULL; }   /* recuperacion */
+    | error '}'                         { yyerrok; $$ = NULL; }
     ;
 
 /* var : <tipo> <identificador> ;   |   var : <tipo> <identificador> = <expresion> ; */
@@ -91,6 +98,61 @@ asignacion
 /* print ( <expresion> ) ; */
 impresion
     : PRINT '(' expr ')' ';'            { $$ = ast_imprimir($3, @1.first_line); }
+    ;
+
+/* ---------------- FUNCIONES ----------------
+   func <nombre> ( <parametros> ) : <tipo> { <sentencias> }
+   El tipo de retorno puede ser int, float, str, bool o void. */
+funcion
+    : FUNC ID '(' parametros_opt ')' ':' tipo_retorno '{' cuerpo '}'
+                                        { $$ = ast_funcion($2, $4, $7, $9, @1.first_line); }
+    ;
+
+tipo_retorno
+    : TIPO
+    | VOID
+    ;
+
+parametros_opt
+    : %empty                            { $$ = NULL; }
+    | parametros
+    ;
+
+/* a:int, b:float, ... */
+parametros
+    : parametro
+    | parametros ',' parametro          { $$ = ast_agregar($1, $3); }
+    ;
+
+parametro
+    : ID ':' TIPO                       { $$ = ast_parametro($1, $3, @1.first_line); }
+    ;
+
+/* El cuerpo es una lista de sentencias (el semantico prohibe funciones anidadas) */
+cuerpo
+    : %empty                            { $$ = NULL; }
+    | cuerpo sentencia                  { $$ = ast_agregar($1, $2); }
+    ;
+
+/* return <expresion> ;   |   return ; */
+retorno
+    : RETURN expr ';'                   { $$ = ast_retorno($2, @1.first_line); }
+    | RETURN ';'                        { $$ = ast_retorno(NULL, @1.first_line); }
+    ;
+
+/* <nombre> ( <argumentos> ) */
+llamada
+    : ID '(' argumentos_opt ')'         { $$ = ast_llamada($1, $3, @1.first_line); }
+    ;
+
+argumentos_opt
+    : %empty                            { $$ = NULL; }
+    | argumentos
+    ;
+
+argumentos
+    : expr
+    | argumentos ',' expr               { $$ = ast_agregar($1, $3); }
     ;
 
 expr
@@ -114,6 +176,7 @@ expr
     | STR_LIT                           { $$ = ast_str($1,   @1.first_line); }
     | BOOL_LIT                          { $$ = ast_bool((int)$1, @1.first_line); }
     | ID                                { $$ = ast_id($1,    @1.first_line); }
+    | llamada
     ;
 
 %%

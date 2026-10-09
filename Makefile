@@ -4,6 +4,7 @@
 #       make run      -> ejecuta el programa de ejemplo
 #       make tokens   -> ejecuta mostrando la tabla de tokens
 #       make errores  -> ejecuta los ejemplos con errores
+#       make funciones -> ejecuta el ejemplo de funciones (semana 7)
 #       make clean    -> borra los archivos generados
 # ============================================================
 CC      = gcc
@@ -26,13 +27,17 @@ run: $(PROG)
 tokens: $(PROG)
 	./$(PROG) -t ejemplos/programa.mil
 
+funciones: $(PROG)
+	./$(PROG) ejemplos/funciones.mil
+
 errores: $(PROG)
 	-./$(PROG) ejemplos/error_lexico.mil
 	-./$(PROG) ejemplos/error_sintactico.mil
 	-./$(PROG) ejemplos/error_semantico.mil
 	-./$(PROG) ejemplos/error_ejecucion.mil
+	-./$(PROG) ejemplos/error_funciones.mil
 
 clean:
 	rm -f $(PROG) parser.tab.c parser.tab.h lex.yy.c
 
-.PHONY: run tokens errores clean
+.PHONY: run tokens funciones errores clean

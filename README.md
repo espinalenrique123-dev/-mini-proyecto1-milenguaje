@@ -12,7 +12,9 @@ make                                   # compila -> genera ./milenguaje
 ./milenguaje -t ejemplos/programa.mil  # igual, mostrando la tabla de tokens
 make run       # ejecuta el programa de ejemplo
 make tokens    # ejemplo + tabla de tokens
-make errores   # ejecuta los 4 ejemplos con errores
+make funciones # ejecuta el ejemplo de funciones (semana 7)
+make errores   # ejecuta los ejemplos con errores
+./demo.sh      # demostracion completa paso a paso
 make clean     # borra los archivos generados
 ```
 
@@ -35,13 +37,13 @@ Si una fase encuentra errores, la compilación se detiene ahí.
 
 | Token | Patrón | Ejemplo |
 |---|---|---|
-| Palabras reservadas | `var print int float str bool true false` | `var` |
+| Palabras reservadas | `var print func return void int float str bool true false` | `func` |
 | ID (identificador) | letra o `_`, seguido de letras, dígitos o `_` | `edad`, `_total2` |
 | INT_LIT | uno o más dígitos | `25` |
 | FLOAT_LIT | dígitos `.` dígitos | `3.75` |
 | STR_LIT | texto entre comillas dobles | `"Moises"` |
 | Operadores | `+ - * /` `< > <= >= == !=` `&& \|\| !` `=` | |
-| Signos | `: ; ( )` | |
+| Signos | `: ; ( ) { } ,` | |
 | Comentarios | `//` hasta el final de la línea (se ignoran) | |
 
 ### Reglas sintácticas (gramática)
@@ -60,6 +62,43 @@ expr         → expr OP expr | - expr | ! expr | ( expr )
 
 Precedencia (de menor a mayor): `||` → `&&` → `== !=` → `< > <= >=` → `+ -` → `* /` → `! -` (unarios). Los paréntesis cambian el orden.
 
+### Funciones (semana 7)
+
+```
+funcion      → func ID ( parametros ) : TIPO_RETORNO { sentencia* }
+parametros   → ε | ID : TIPO ( , ID : TIPO )*
+TIPO_RETORNO → int | float | str | bool | void
+retorno      → return expr ; | return ;
+llamada      → ID ( argumentos )        (como expresión o como sentencia)
+```
+
+Ejemplo:
+
+```
+func sumar(a:int, b:int):int {
+    return a + b;
+}
+
+func mostrar(mensaje:str):void {
+    print("[log] " + mensaje);
+}
+
+var:int resultado = sumar(30, 20) * 2;
+mostrar("listo");
+```
+
+Reglas semánticas de las funciones:
+
+1. Una función se declara **antes** de llamarla y su nombre no se puede repetir.
+2. Los **parámetros y variables locales** solo existen dentro de su función (ámbito propio). Una variable local puede tener el mismo nombre que una global.
+3. La llamada debe tener **la misma cantidad de argumentos** que parámetros, y cada argumento debe ser **compatible** con el tipo de su parámetro (se permite `int → float`).
+4. Una función que no es `void` **debe tener `return`** con un valor de su tipo.
+5. Una función `void` **no puede devolver un valor** ni usarse dentro de una expresión o en `print`.
+6. `return` solo se puede usar dentro de una función, y no se permiten funciones dentro de funciones.
+7. Se permite la recursión; si una función se llama demasiadas veces (más de 1000 llamadas anidadas) se produce un error de ejecución.
+
+En la ejecución, cada llamada crea un **marco** con sus parámetros y variables locales, por eso una función puede llamarse muchas veces sin mezclar sus valores. La Tabla de Símbolos muestra la **categoría** (variable, parámetro o función) y el **ámbito** (`global` o el nombre de la función).
+
 ### Reglas semánticas
 
 1. Una variable debe **declararse antes de usarse**.
@@ -77,6 +116,8 @@ Precedencia (de menor a mayor): `||` → `&&` → `== !=` → `< > <= >=` → `+
 | Archivo | Demuestra |
 |---|---|
 | `ejemplos/programa.mil` | Programa correcto con todos los tipos y operadores |
+| `ejemplos/funciones.mil` | Funciones con parámetros, `return`, `void`, variables locales y llamadas anidadas |
+| `ejemplos/error_funciones.mil` | Errores de funciones: argumentos, tipos de retorno, `return` faltante, ámbito |
 | `ejemplos/error_lexico.mil` | Caracteres no reconocidos, cadena sin cerrar |
 | `ejemplos/error_sintactico.mil` | Falta `;`, falta `:`, falta expresión, falta `)` |
 | `ejemplos/error_semantico.mil` | Redeclaración, variable no declarada, tipos incompatibles, división entre cero |

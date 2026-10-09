@@ -1,30 +1,50 @@
 /* ============================================================
  * symtab.c - Tabla de Simbolos (arreglo con busqueda lineal)
+ *
+ * Ambitos: cada simbolo guarda el nombre de su ambito. Al buscar
+ * un nombre se revisa primero el ambito actual (la funcion que se
+ * esta analizando) y despues el ambito global.
  * ============================================================ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "symtab.h"
 
-#define MAX_SIMBOLOS 256
+#define MAX_SIMBOLOS 512
 static Simbolo tabla[MAX_SIMBOLOS];
 static int cantidad = 0;
+static char ambito_actual[128] = "global";
 
-void ts_iniciar(void) { cantidad = 0; }
+void ts_iniciar(void) { cantidad = 0; strcpy(ambito_actual, "global"); }
 
-Simbolo *ts_buscar(const char *nombre) {
+void ts_entrar_ambito(const char *funcion) {
+    snprintf(ambito_actual, sizeof ambito_actual, "%s", funcion);
+}
+void ts_salir_ambito(void) { strcpy(ambito_actual, "global"); }
+const char *ts_ambito_actual(void) { return ambito_actual; }
+
+Simbolo *ts_buscar_en_ambito(const char *nombre, const char *ambito) {
     for (int i = 0; i < cantidad; i++)
-        if (strcmp(tabla[i].nombre, nombre) == 0) return &tabla[i];
+        if (strcmp(tabla[i].nombre, nombre) == 0 && strcmp(tabla[i].ambito, ambito) == 0)
+            return &tabla[i];
     return NULL;
 }
 
-Simbolo *ts_insertar(const char *nombre, TipoDato tipo, int linea) {
+Simbolo *ts_buscar(const char *nombre) {
+    Simbolo *s = ts_buscar_en_ambito(nombre, ambito_actual);   /* local  */
+    if (s) return s;
+    return ts_buscar_en_ambito(nombre, "global");              /* global */
+}
+
+Simbolo *ts_insertar(const char *nombre, TipoDato tipo, Categoria cat, int linea) {
     if (cantidad >= MAX_SIMBOLOS) return NULL;
     Simbolo *s = &tabla[cantidad++];
     memset(s, 0, sizeof *s);
     s->nombre = strdup(nombre);
     s->tipo = tipo;
-    s->ambito = "global";
+    s->categoria = cat;
+    s->ambito = strdup(ambito_actual);
+    s->es_local = strcmp(ambito_actual, "global") != 0;
     s->linea = linea;
     s->valor.tipo = tipo;
     s->valor.s = "";
@@ -33,6 +53,14 @@ Simbolo *ts_insertar(const char *nombre, TipoDato tipo, int linea) {
 
 int ts_cantidad(void) { return cantidad; }
 Simbolo *ts_obtener(int i) { return &tabla[i]; }
+
+const char *nombre_categoria(Categoria c) {
+    switch (c) {
+        case S_VARIABLE:  return "variable";
+        case S_PARAMETRO: return "parametro";
+        default:          return "funcion";
+    }
+}
 
 void valor_a_texto(Valor v, char *buf, int tam) {
     switch (v.tipo) {
@@ -43,28 +71,33 @@ void valor_a_texto(Valor v, char *buf, int tam) {
             break;
         case T_BOOL:  snprintf(buf, tam, "%s", v.i ? "true" : "false"); break;
         case T_STR:   snprintf(buf, tam, "%s", v.s); break;
-        default:      snprintf(buf, tam, "?"); break;
+        default:      snprintf(buf, tam, "-"); break;
     }
 }
 
 void ts_imprimir(int con_valores) {
     const char *sep = con_valores
-        ? "+----+--------------+--------+---------+-------+--------------+------+----------------------+\n"
-        : "+----+--------------+--------+---------+-------+--------------+------+\n";
+        ? "+----+-------------+-------------+-------+-------------+-------+------+------+----------------------+\n"
+        : "+----+-------------+-------------+-------+-------------+-------+------+------+\n";
     printf("%s", sep);
-    printf("| %-2s | %-12s | %-6s | %-7s | %-5s | %-12s | %-4s |", "#", "NOMBRE", "TIPO", "AMBITO", "LINEA", "INICIALIZADA", "USOS");
+    printf("| %-2s | %-11s | %-11s | %-5s | %-11s | %-5s | %-4s | %-4s |", "#", "NOMBRE",
+           "CATEGORIA", "TIPO", "AMBITO", "LINEA", "INIC", "USOS");
     if (con_valores) printf(" %-20s |", "VALOR");
     printf("\n%s", sep);
     if (cantidad == 0) printf("| (tabla vacia)\n");
     for (int i = 0; i < cantidad; i++) {
         Simbolo *s = &tabla[i];
-        printf("| %-2d | %-12.12s | %-6s | %-7s | %-5d | %-12s | %-4d |", i + 1, s->nombre,
-               nombre_tipo(s->tipo), s->ambito, s->linea, s->inicializada ? "si" : "no", s->usos);
+        char cat[16];
+        if (s->categoria == S_FUNCION) snprintf(cat, sizeof cat, "funcion(%d)", s->num_params);
+        else snprintf(cat, sizeof cat, "%s", nombre_categoria(s->categoria));
+        printf("| %-2d | %-11.11s | %-11.11s | %-5s | %-11.11s | %-5d | %-4s | %-4d |", i + 1,
+               s->nombre, cat, nombre_tipo(s->tipo), s->ambito, s->linea,
+               s->categoria == S_FUNCION ? "-" : (s->inicializada ? "si" : "no"), s->usos);
         if (con_valores) {
-            char v[256];
-            valor_a_texto(s->valor, v, sizeof v);
-            char q[260];
-            if (s->tipo == T_STR) snprintf(q, sizeof q, "\"%s\"", v);
+            char v[256], q[260];
+            if (s->categoria == S_FUNCION) strcpy(v, "-");
+            else valor_a_texto(s->valor, v, sizeof v);
+            if (s->tipo == T_STR && s->categoria != S_FUNCION) snprintf(q, sizeof q, "\"%s\"", v);
             else snprintf(q, sizeof q, "%s", v);
             if (strlen(q) > 20) strcpy(q + 17, "...");   /* cabe en la columna */
             printf(" %-20s |", q);

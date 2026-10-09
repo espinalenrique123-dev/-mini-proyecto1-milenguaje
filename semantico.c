@@ -5,6 +5,7 @@
  *  - Verifica compatibilidad de tipos (decora el AST con tipos)
  *  - Detecta division entre cero literal
  *  - Advierte variables sin inicializar o nunca usadas
+ *  - Funciones: ambitos, parametros, llamadas y return
  * ============================================================ */
 #include <stdio.h>
 #include <stdarg.h>
@@ -41,6 +42,43 @@ static int es_cero_literal(Nodo *n) {
     return (n->clase == N_LIT_INT && n->ival == 0) || (n->clase == N_LIT_FLOAT && n->fval == 0.0);
 }
 
+/* Funcion que se esta analizando (NULL = estamos en el programa principal) */
+static Simbolo *funcion_actual = NULL;
+
+static TipoDato revisar_expr(Nodo *e);
+
+/* ---------- Llamada a funcion: f(arg1, arg2, ...) ---------- */
+static TipoDato revisar_llamada(Nodo *e) {
+    Simbolo *f = ts_buscar(e->nombre);
+    /* Los argumentos se revisan siempre, para reportar sus errores */
+    int n_args = 0;
+    for (Nodo *a = e->a; a; a = a->sig) { revisar_expr(a); n_args++; }
+
+    if (!f) {
+        error_sem(e->linea, "la funcion '%s' no ha sido declarada", e->nombre);
+        return e->tipo = T_ERROR;
+    }
+    if (f->categoria != S_FUNCION) {
+        error_sem(e->linea, "'%s' es una %s, no una funcion", e->nombre, nombre_categoria(f->categoria));
+        return e->tipo = T_ERROR;
+    }
+    e->sim = f;
+    f->usos++;
+    if (n_args != f->num_params) {
+        error_sem(e->linea, "la funcion '%s' espera %d argumento(s), pero recibio %d",
+                  e->nombre, f->num_params, n_args);
+        return e->tipo = f->tipo;
+    }
+    /* Cada argumento debe ser compatible con su parametro */
+    Nodo *p = f->funcion->a, *a = e->a;
+    for (int i = 1; p && a; p = p->sig, a = a->sig, i++) {
+        if (a->tipo != T_ERROR && !compatible(p->tipo, a->tipo))
+            error_sem(e->linea, "argumento %d de '%s': se esperaba %s ('%s') y se recibio %s",
+                      i, e->nombre, nombre_tipo(p->tipo), p->nombre, nombre_tipo(a->tipo));
+    }
+    return e->tipo = f->tipo;
+}
+
 /* Calcula el tipo de una expresion y lo guarda en el nodo */
 static TipoDato revisar_expr(Nodo *e) {
     switch (e->clase) {
@@ -48,6 +86,7 @@ static TipoDato revisar_expr(Nodo *e) {
     case N_LIT_FLOAT: return e->tipo = T_FLOAT;
     case N_LIT_STR:   return e->tipo = T_STR;
     case N_LIT_BOOL:  return e->tipo = T_BOOL;
+    case N_LLAMADA:   return revisar_llamada(e);
 
     case N_ID: {
         Simbolo *s = ts_buscar(e->nombre);
@@ -55,6 +94,12 @@ static TipoDato revisar_expr(Nodo *e) {
             error_sem(e->linea, "la variable '%s' no ha sido declarada", e->nombre);
             return e->tipo = T_ERROR;
         }
+        if (s->categoria == S_FUNCION) {
+            error_sem(e->linea, "'%s' es una funcion; para usarla hay que llamarla: %s(...)",
+                      e->nombre, e->nombre);
+            return e->tipo = T_ERROR;
+        }
+        e->sim = s;
         s->usos++;
         if (!s->inicializada)
             advertencia(e->linea, "la variable '%s' se usa sin haber sido inicializada", e->nombre);
@@ -97,7 +142,7 @@ static TipoDato revisar_expr(Nodo *e) {
         }
         /* Igualdad: == != */
         else if (es_op(e, "==") || es_op(e, "!=")) {
-            if (i == d || (es_numerico(i) && es_numerico(d))) return e->tipo = T_BOOL;
+            if (i != T_VOID && (i == d || (es_numerico(i) && es_numerico(d)))) return e->tipo = T_BOOL;
         }
         /* Logicos: && || */
         else if (es_op(e, "&&") || es_op(e, "||")) {
@@ -111,18 +156,30 @@ static TipoDato revisar_expr(Nodo *e) {
     }
 }
 
+/* Inserta una variable o parametro en el ambito actual.
+   Si estamos dentro de una funcion, le reserva un lugar en su marco. */
+static Simbolo *declarar(const char *nombre, TipoDato t, Categoria cat, int linea) {
+    Simbolo *previo = ts_buscar_en_ambito(nombre, ts_ambito_actual());
+    if (previo) {
+        error_sem(linea, "'%s' ya fue declarado en la linea %d (ambito %s)",
+                  nombre, previo->linea, previo->ambito);
+        return NULL;
+    }
+    Simbolo *s = ts_insertar(nombre, t, cat, linea);
+    if (s && s->es_local && funcion_actual) s->slot = funcion_actual->num_locales++;
+    return s;
+}
+
+static void revisar_funcion(Nodo *f);
+
 static void revisar_sentencia(Nodo *s) {
     switch (s->clase) {
     case N_DECLARACION: {
         /* La expresion se revisa ANTES de insertar: var:int x = x; es un error */
         TipoDato t = s->a ? revisar_expr(s->a) : T_NINGUNO;
-        Simbolo *previo = ts_buscar(s->nombre);
-        if (previo) {
-            error_sem(s->linea, "la variable '%s' ya fue declarada en la linea %d",
-                      s->nombre, previo->linea);
-            return;
-        }
-        Simbolo *nuevo = ts_insertar(s->nombre, s->tipo, s->linea);
+        Simbolo *nuevo = declarar(s->nombre, s->tipo, S_VARIABLE, s->linea);
+        if (!nuevo) return;
+        s->sim = nuevo;
         if (s->a) {
             if (t != T_ERROR && !compatible(s->tipo, t))
                 error_sem(s->linea, "no se puede inicializar '%s' (%s) con un valor de tipo %s",
@@ -139,6 +196,11 @@ static void revisar_sentencia(Nodo *s) {
             s->tipo = T_ERROR;
             return;
         }
+        if (sim->categoria == S_FUNCION) {
+            error_sem(s->linea, "no se puede asignar un valor a '%s' porque es una funcion", s->nombre);
+            return;
+        }
+        s->sim = sim;
         s->tipo = sim->tipo;
         if (t != T_ERROR && !compatible(sim->tipo, t))
             error_sem(s->linea, "no se puede asignar un valor de tipo %s a '%s' que es de tipo %s",
@@ -146,22 +208,100 @@ static void revisar_sentencia(Nodo *s) {
         sim->inicializada = 1;
         break;
     }
-    case N_IMPRIMIR:
-        revisar_expr(s->a);
+    case N_IMPRIMIR: {
+        TipoDato t = revisar_expr(s->a);
+        if (t == T_VOID)
+            error_sem(s->linea, "no se puede imprimir el resultado de '%s' porque es una funcion void",
+                      s->a->nombre);
+        break;
+    }
+    case N_LLAMADA:            /* llamada usada como sentencia: f(x); */
+        revisar_llamada(s);
+        break;
+    case N_RETORNO: {
+        TipoDato t = s->a ? revisar_expr(s->a) : T_VOID;
+        if (!funcion_actual) {
+            error_sem(s->linea, "'return' solo se puede usar dentro de una funcion");
+            return;
+        }
+        TipoDato esperado = funcion_actual->tipo;
+        s->tipo = esperado;
+        if (esperado == T_VOID && s->a)
+            error_sem(s->linea, "la funcion '%s' es void y no puede devolver un valor",
+                      funcion_actual->nombre);
+        else if (esperado != T_VOID && !s->a)
+            error_sem(s->linea, "la funcion '%s' debe devolver un valor de tipo %s",
+                      funcion_actual->nombre, nombre_tipo(esperado));
+        else if (esperado != T_VOID && t != T_ERROR && !compatible(esperado, t))
+            error_sem(s->linea, "la funcion '%s' debe devolver %s, pero devuelve %s",
+                      funcion_actual->nombre, nombre_tipo(esperado), nombre_tipo(t));
+        break;
+    }
+    case N_FUNCION:
+        revisar_funcion(s);
         break;
     default: break;
     }
 }
 
+/* ---------- Declaracion de funcion ---------- */
+static void revisar_funcion(Nodo *f) {
+    if (funcion_actual) {
+        error_sem(f->linea, "no se puede declarar la funcion '%s' dentro de otra funcion", f->nombre);
+        return;
+    }
+    /* 1. Registrar la funcion en el ambito global (antes del cuerpo: permite recursion) */
+    Simbolo *previo = ts_buscar_en_ambito(f->nombre, "global");
+    if (previo) {
+        error_sem(f->linea, "el nombre '%s' ya fue declarado en la linea %d", f->nombre, previo->linea);
+        return;
+    }
+    Simbolo *fs = ts_insertar(f->nombre, f->tipo, S_FUNCION, f->linea);
+    fs->funcion = f;
+    fs->num_params = ast_contar_lista(f->a);
+    fs->inicializada = 1;
+    f->sim = fs;
+
+    /* 2. Entrar al ambito de la funcion y declarar los parametros */
+    funcion_actual = fs;
+    ts_entrar_ambito(f->nombre);
+    for (Nodo *p = f->a; p; p = p->sig) {
+        Simbolo *ps = declarar(p->nombre, p->tipo, S_PARAMETRO, p->linea);
+        if (ps) { ps->inicializada = 1; p->sim = ps; }
+    }
+
+    /* 3. Revisar el cuerpo */
+    int tiene_return = 0;
+    for (Nodo *s = f->b; s; s = s->sig) {
+        if (tiene_return)
+            advertencia(s->linea, "este codigo esta despues de 'return' y nunca se ejecuta");
+        revisar_sentencia(s);
+        if (s->clase == N_RETORNO) tiene_return = 1;
+    }
+    if (f->tipo != T_VOID && !tiene_return)
+        error_sem(f->linea, "la funcion '%s' debe devolver un valor de tipo %s, pero no tiene 'return'",
+                  f->nombre, nombre_tipo(f->tipo));
+
+    /* 4. Salir del ambito de la funcion */
+    ts_salir_ambito();
+    funcion_actual = NULL;
+}
+
 int analizar_semantica(Nodo *programa, int *adv) {
     errores = advertencias = 0;
+    funcion_actual = NULL;
     ts_iniciar();
     for (Nodo *s = programa->a; s; s = s->sig) revisar_sentencia(s);
 
-    /* Variables declaradas que nunca se leyeron */
+    /* Simbolos declarados que nunca se usaron */
     for (int i = 0; i < ts_cantidad(); i++) {
         Simbolo *s = ts_obtener(i);
-        if (s->usos == 0)
+        if (s->usos > 0) continue;
+        if (s->categoria == S_FUNCION)
+            advertencia(s->linea, "la funcion '%s' se declaro pero nunca se llama", s->nombre);
+        else if (s->categoria == S_PARAMETRO)
+            advertencia(s->linea, "el parametro '%s' de '%s' nunca se usa", s->nombre, s->ambito);
+        else
             advertencia(s->linea, "la variable '%s' se declaro pero nunca se usa", s->nombre);
     }
     if (adv) *adv = advertencias;

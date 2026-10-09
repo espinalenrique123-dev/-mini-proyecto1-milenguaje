@@ -45,10 +45,24 @@ Nodo *ast_unaria(const char *op, Nodo *e, int linea) {
     Nodo *n = nuevo(N_OP_UNARIA, linea); n->nombre = strdup(op); n->a = e; return n;
 }
 
+Nodo *ast_funcion(char *nombre, Nodo *params, TipoDato ret, Nodo *cuerpo, int linea) {
+    Nodo *n = nuevo(N_FUNCION, linea);
+    n->nombre = nombre; n->tipo = ret; n->a = params; n->b = cuerpo; return n;
+}
+Nodo *ast_parametro(char *nombre, TipoDato t, int linea) {
+    Nodo *n = nuevo(N_PARAMETRO, linea); n->nombre = nombre; n->tipo = t; return n;
+}
+Nodo *ast_retorno(Nodo *e, int linea) { Nodo *n = nuevo(N_RETORNO, linea); n->a = e; return n; }
+Nodo *ast_llamada(char *nombre, Nodo *args, int linea) {
+    Nodo *n = nuevo(N_LLAMADA, linea); n->nombre = nombre; n->a = args; return n;
+}
+int ast_contar_lista(Nodo *l) { int c = 0; for (; l; l = l->sig) c++; return c; }
+
 const char *nombre_tipo(TipoDato t) {
     switch (t) {
         case T_INT: return "int";   case T_FLOAT: return "float";
         case T_STR: return "str";   case T_BOOL:  return "bool";
+        case T_VOID: return "void";
         case T_ERROR: return "ERROR"; default: return "-";
     }
 }
@@ -56,7 +70,7 @@ const char *nombre_tipo(TipoDato t) {
 const char *nombre_clase(ClaseNodo c) {
     static const char *n[] = { "PROGRAMA", "DECLARACION", "ASIGNACION", "IMPRIMIR",
         "LIT_INT", "LIT_FLOAT", "LIT_STR", "LIT_BOOL", "IDENTIFICADOR",
-        "OP_BINARIA", "OP_UNARIA" };
+        "OP_BINARIA", "OP_UNARIA", "FUNCION", "PARAMETRO", "RETORNO", "LLAMADA" };
     return n[c];
 }
 
@@ -79,6 +93,18 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
                             break;
         case N_LIT_STR:     snprintf(buf, tam, "\"%s\"", n->sval); break;
         case N_LIT_BOOL:    snprintf(buf, tam, "%s", n->ival ? "true" : "false"); break;
+        case N_FUNCION: {
+            /* func nombre(a:int, b:int):tipo */
+            size_t k = snprintf(buf, tam, "func %s(", n->nombre);
+            for (Nodo *p = n->a; p && k < tam; p = p->sig)
+                k += snprintf(buf + k, tam - k, "%s%s:%s", p == n->a ? "" : ", ",
+                              p->nombre, nombre_tipo(p->tipo));
+            if (k < tam) snprintf(buf + k, tam - k, "):%s", nombre_tipo(n->tipo));
+            break;
+        }
+        case N_PARAMETRO:   snprintf(buf, tam, "%s:%s", n->nombre, nombre_tipo(n->tipo)); break;
+        case N_RETORNO:     snprintf(buf, tam, "%s", n->a ? "return valor" : "return"); break;
+        case N_LLAMADA:     snprintf(buf, tam, "%s(%d arg)", n->nombre, ast_contar_lista(n->a)); break;
         case N_ID:          snprintf(buf, tam, "%s", n->nombre); break;
         default:            snprintf(buf, tam, "%s", n->nombre); break;
     }
@@ -87,8 +113,13 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
 /* Devuelve los hijos de un nodo en el arreglo h (max 512) */
 static int hijos(Nodo *n, Nodo **h) {
     int k = 0;
-    if (n->clase == N_PROGRAMA) {
+    if (n->clase == N_PROGRAMA || n->clase == N_LLAMADA) {
+        /* programa: sus sentencias; llamada: sus argumentos */
         for (Nodo *s = n->a; s && k < 512; s = s->sig) h[k++] = s;
+    } else if (n->clase == N_FUNCION) {
+        /* funcion: primero los parametros y luego el cuerpo */
+        for (Nodo *s = n->a; s && k < 512; s = s->sig) h[k++] = s;
+        for (Nodo *s = n->b; s && k < 512; s = s->sig) h[k++] = s;
     } else {
         if (n->a) h[k++] = n->a;
         if (n->b) h[k++] = n->b;
@@ -135,7 +166,7 @@ static void fila(Nodo *n) {
     }
     if (!k) strcpy(hs, "-");
     if (strlen(hs) > 14) strcpy(hs + 11, "...");   /* cabe en la columna */
-    printf("| %-4d | %-14s | %-22.22s | %-6s | %-14.14s | %-5d |\n",
+    printf("| %-4d | %-14s | %-30.30s | %-6s | %-14.14s | %-5d |\n",
            n->id, nombre_clase(n->clase), d, nombre_tipo(n->tipo), hs, n->linea);
     for (int i = 0; i < k; i++) fila(h[i]);
 }
@@ -144,9 +175,9 @@ void ast_imprimir_tabla(Nodo *raiz) {
     if (!raiz) return;
     contador = 0;
     numerar(raiz);
-    const char *sep = "+------+----------------+------------------------+--------+----------------+-------+\n";
+    const char *sep = "+------+----------------+--------------------------------+--------+----------------+-------+\n";
     printf("%s", sep);
-    printf("| %-4s | %-14s | %-22s | %-6s | %-14s | %-5s |\n", "ID", "NODO", "VALOR / DETALLE", "TIPO", "HIJOS", "LINEA");
+    printf("| %-4s | %-14s | %-30s | %-6s | %-14s | %-5s |\n", "ID", "NODO", "VALOR / DETALLE", "TIPO", "HIJOS", "LINEA");
     printf("%s", sep);
     fila(raiz);
     printf("%s", sep);
