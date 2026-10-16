@@ -24,7 +24,9 @@ typedef enum {
     N_FUNCION,      /* func f(a:int):int { ... }          */
     N_PARAMETRO,    /* a:int  (dentro de una funcion)     */
     N_RETORNO,      /* return expr;  /  return;           */
-    N_LLAMADA       /* f(x, y)  (expresion o sentencia)   */
+    N_LLAMADA,      /* f(x, y)  (expresion o sentencia)   */
+    N_SI,           /* if cond : { ... } else { ... }     */
+    N_BLOQUE        /* { sentencias }  (bloque del if/else) */
 } ClaseNodo;
 
 typedef struct Nodo {
@@ -39,6 +41,10 @@ typedef struct Nodo {
     struct Nodo *a, *b;  /* hijos                                   */
                          /* FUNCION: a = parametros, b = cuerpo     */
                          /* LLAMADA: a = argumentos                 */
+                         /* SI: a = condicion, b = bloque if,       */
+                         /*     c = bloque else (o NULL)            */
+                         /* BLOQUE: a = lista de sentencias         */
+    struct Nodo *c;      /* tercer hijo (solo el else del IF)       */
     struct Nodo *sig;    /* siguiente elemento (sentencias, params, */
                          /* argumentos)                             */
     void *sim;           /* simbolo resuelto por el semantico       */
@@ -61,6 +67,8 @@ Nodo *ast_funcion(char *nombre, Nodo *params, TipoDato ret, Nodo *cuerpo, int li
 Nodo *ast_parametro(char *nombre, TipoDato t, int linea);
 Nodo *ast_retorno(Nodo *expr, int linea);
 Nodo *ast_llamada(char *nombre, Nodo *args, int linea);
+Nodo *ast_si(Nodo *cond, Nodo *bloque_si, Nodo *bloque_sino, int linea);
+Nodo *ast_bloque(const char *etiqueta, Nodo *sentencias, int linea);
 int  ast_contar_lista(Nodo *lista);
 
 /* Utilidades */

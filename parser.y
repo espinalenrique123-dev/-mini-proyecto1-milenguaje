@@ -39,7 +39,7 @@ Nodo *raiz = NULL;
 }
 
 /* Los textos entre comillas aparecen en los mensajes de error */
-%token VAR "var" PRINT "print" FUNC "func" RETURN "return"
+%token VAR "var" PRINT "print" FUNC "func" RETURN "return" IF "if" ELSE "else"
 %token <tipo> VOID "void"
 %token <tipo> TIPO "tipo de dato"
 %token <sval> ID "identificador" STR_LIT "cadena"
@@ -49,6 +49,7 @@ Nodo *raiz = NULL;
 
 %type <nodo> lista_sentencias sentencia declaracion asignacion impresion expr
 %type <nodo> funcion parametros_opt parametros parametro cuerpo retorno llamada argumentos_opt argumentos
+%type <nodo> si bloque sino_opt
 %type <tipo> tipo_retorno
 
 /* Precedencia: de menor (arriba) a mayor (abajo) */
@@ -79,6 +80,7 @@ sentencia
     | impresion
     | funcion
     | retorno
+    | si
     | llamada ';'                       { $$ = $1; }
     | error ';'                         { yyerrok; $$ = NULL; }   /* recuperacion */
     | error '}'                         { yyerrok; $$ = NULL; }
@@ -138,6 +140,30 @@ cuerpo
 retorno
     : RETURN expr ';'                   { $$ = ast_retorno($2, @1.first_line); }
     | RETURN ';'                        { $$ = ast_retorno(NULL, @1.first_line); }
+    ;
+
+/* ---------------- IF (semana 8) ----------------
+   if <condicion> : { <sentencias> }
+   if <condicion> : { <sentencias> } else { <sentencias> }
+   Los dos puntos ':' son opcionales:  if (x > y) { ... }  tambien vale. */
+si
+    : IF expr dos_puntos_opt bloque sino_opt
+                                        { $4->nombre = strdup("if");
+                                          $$ = ast_si($2, $4, $5, @1.first_line); }
+    ;
+
+dos_puntos_opt
+    : %empty
+    | ':'
+    ;
+
+sino_opt
+    : %empty                            { $$ = NULL; }
+    | ELSE bloque                       { $2->nombre = strdup("else"); $$ = $2; }
+    ;
+
+bloque
+    : '{' cuerpo '}'                    { $$ = ast_bloque("", $2, @1.first_line); }
     ;
 
 /* <nombre> ( <argumentos> ) */

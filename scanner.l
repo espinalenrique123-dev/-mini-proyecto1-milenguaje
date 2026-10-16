@@ -38,6 +38,14 @@ LETRA    [a-zA-Z_]
 "print"                 { TOKEN(PRINT, "PRINT"); }
 "func"                  { TOKEN(FUNC, "FUNC"); }
 "return"                { TOKEN(RETURN, "RETURN"); }
+"if"                    { TOKEN(IF, "IF"); }
+"else"                  { TOKEN(ELSE, "ELSE"); }
+ /* Comparaciones y logicos escritos con palabras (como el ejemplo del profe) */
+"is"[ \t]+"not"          { TOKEN(NE, "DIFERENTE"); }
+"is"                    { TOKEN(EQ, "IGUAL"); }
+"greater"               { TOKEN('>', "MAYOR"); }
+"less"                  { TOKEN('<', "MENOR"); }
+"or"                    { TOKEN(OR, "OR"); }
 "void"                  { yylval.tipo = T_VOID; TOKEN(VOID, "VOID"); }
 "int"                   { yylval.tipo = T_INT;   TOKEN(TIPO, "TIPO"); }
 "float"                 { yylval.tipo = T_FLOAT; TOKEN(TIPO, "TIPO"); }

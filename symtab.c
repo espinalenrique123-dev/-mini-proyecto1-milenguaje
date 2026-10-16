@@ -1,9 +1,9 @@
 /* ============================================================
  * symtab.c - Tabla de Simbolos (arreglo con busqueda lineal)
  *
- * Ambitos: cada simbolo guarda el nombre de su ambito. Al buscar
- * un nombre se revisa primero el ambito actual (la funcion que se
- * esta analizando) y despues el ambito global.
+ * Ambitos: cada simbolo guarda el nombre de su ambito ("global", una
+ * funcion o un bloque if/else). Al buscar un nombre se revisa desde el
+ * ambito mas interno hacia afuera, hasta llegar al global.
  * ============================================================ */
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,15 +13,18 @@
 #define MAX_SIMBOLOS 512
 static Simbolo tabla[MAX_SIMBOLOS];
 static int cantidad = 0;
-static char ambito_actual[128] = "global";
+/* Pila de ambitos: global -> funcion -> bloque if -> bloque if anidado ... */
+#define MAX_AMBITOS 64
+static char pila[MAX_AMBITOS][64];
+static int nivel = 0;                       /* 0 = global */
 
-void ts_iniciar(void) { cantidad = 0; strcpy(ambito_actual, "global"); }
+void ts_iniciar(void) { cantidad = 0; nivel = 0; strcpy(pila[0], "global"); }
 
-void ts_entrar_ambito(const char *funcion) {
-    snprintf(ambito_actual, sizeof ambito_actual, "%s", funcion);
+void ts_entrar_ambito(const char *nombre) {
+    if (nivel < MAX_AMBITOS - 1) snprintf(pila[++nivel], sizeof pila[0], "%s", nombre);
 }
-void ts_salir_ambito(void) { strcpy(ambito_actual, "global"); }
-const char *ts_ambito_actual(void) { return ambito_actual; }
+void ts_salir_ambito(void) { if (nivel > 0) nivel--; }
+const char *ts_ambito_actual(void) { return pila[nivel]; }
 
 Simbolo *ts_buscar_en_ambito(const char *nombre, const char *ambito) {
     for (int i = 0; i < cantidad; i++)
@@ -30,10 +33,13 @@ Simbolo *ts_buscar_en_ambito(const char *nombre, const char *ambito) {
     return NULL;
 }
 
+/* Busca desde el ambito mas interno hacia afuera, hasta el global */
 Simbolo *ts_buscar(const char *nombre) {
-    Simbolo *s = ts_buscar_en_ambito(nombre, ambito_actual);   /* local  */
-    if (s) return s;
-    return ts_buscar_en_ambito(nombre, "global");              /* global */
+    for (int k = nivel; k >= 0; k--) {
+        Simbolo *s = ts_buscar_en_ambito(nombre, pila[k]);
+        if (s) return s;
+    }
+    return NULL;
 }
 
 Simbolo *ts_insertar(const char *nombre, TipoDato tipo, Categoria cat, int linea) {
@@ -43,8 +49,8 @@ Simbolo *ts_insertar(const char *nombre, TipoDato tipo, Categoria cat, int linea
     s->nombre = strdup(nombre);
     s->tipo = tipo;
     s->categoria = cat;
-    s->ambito = strdup(ambito_actual);
-    s->es_local = strcmp(ambito_actual, "global") != 0;
+    s->ambito = strdup(pila[nivel]);
+    s->es_local = nivel > 0;
     s->linea = linea;
     s->valor.tipo = tipo;
     s->valor.s = "";

@@ -1,0 +1,33 @@
+// error_if.mil - Errores semanticos del IF
+var:int edad = 20;
+
+// 1. La condicion no es bool (es int)
+if edad : {
+    print("hola");
+}
+
+// 2. La condicion compara tipos incompatibles
+if edad == "veinte" : {
+    print("hola");
+}
+
+// 3. Variable declarada dentro del if y usada afuera
+if edad > 18 : {
+    var:int dentro = 1;
+}
+print(dentro);
+
+// 4. Funcion que no devuelve un valor en todos los caminos
+func signo(n:int):str {
+    if n > 0 : {
+        return "positivo";
+    }
+}
+print(signo(edad));
+
+// 5. Funcion declarada dentro de un if
+if edad > 0 : {
+    func doble(n:int):int {
+        return n * 2;
+    }
+}
