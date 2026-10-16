@@ -1,28 +1,41 @@
 #!/bin/bash
-# Demostracion del compilador de MiLenguaje
+# Demostracion del compilador de MiLenguaje (con colores)
 cd "$(dirname "$0")"
 
-pausa() { echo; read -p ">>> Enter para continuar: $1 "; clear; }
+M="\033[1;38;5;141m"; R="\033[0m"
+pausa() { echo; echo -ne "${M}>>> Enter para continuar: $1 ${R}"; read; clear; }
+
+# Muestra codigo fuente con colores (usa bat si esta instalado)
+ver() {
+    if command -v batcat >/dev/null; then batcat --paging=never -l swift "$1"
+    else cat "$1"; fi
+}
+# Ejecuta el compilador con la salida en colores
+correr() { ./milenguaje "$@" | ./colores.sh | less -R; }
 
 clear
-ls
+ls --color=auto
 pausa "codigo fuente"
-cat ejemplos/programa.mil
+ver ejemplos/programa.mil
 pausa "compilar"
 make clean && make
 pausa "tabla de tokens"
-./milenguaje -t ejemplos/programa.mil | less
+correr -t ejemplos/programa.mil
 pausa "ejecucion completa"
-./milenguaje ejemplos/programa.mil | less
+correr ejemplos/programa.mil
 pausa "funciones (codigo)"
-cat ejemplos/funciones.mil
+ver ejemplos/funciones.mil
 pausa "funciones (resultado)"
-./milenguaje ejemplos/funciones.mil | less
+correr ejemplos/funciones.mil
+pausa "if / else (codigo)"
+ver ejemplos/if.mil
+pausa "if / else (resultado)"
+correr ejemplos/if.mil
 pausa "errores"
-for f in error_lexico error_sintactico error_semantico error_ejecucion error_funciones; do
-    cat ejemplos/$f.mil
+for f in error_lexico error_sintactico error_semantico error_ejecucion error_funciones error_if; do
+    ver ejemplos/$f.mil
     pausa "ver el resultado de $f"
-    ./milenguaje ejemplos/$f.mil | less
+    correr ejemplos/$f.mil
     clear
 done
-echo "Fin de la demostracion"
+echo -e "${M}Fin de la demostracion${R}"

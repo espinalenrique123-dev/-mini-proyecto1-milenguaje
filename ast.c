@@ -56,6 +56,14 @@ Nodo *ast_retorno(Nodo *e, int linea) { Nodo *n = nuevo(N_RETORNO, linea); n->a 
 Nodo *ast_llamada(char *nombre, Nodo *args, int linea) {
     Nodo *n = nuevo(N_LLAMADA, linea); n->nombre = nombre; n->a = args; return n;
 }
+/* if <cond> : { ... } [else { ... }] */
+Nodo *ast_si(Nodo *cond, Nodo *bloque_si, Nodo *bloque_sino, int linea) {
+    Nodo *n = nuevo(N_SI, linea); n->a = cond; n->b = bloque_si; n->c = bloque_sino; return n;
+}
+/* Bloque de sentencias entre llaves; la etiqueta es "if" o "else" */
+Nodo *ast_bloque(const char *etiqueta, Nodo *sentencias, int linea) {
+    Nodo *n = nuevo(N_BLOQUE, linea); n->nombre = strdup(etiqueta); n->a = sentencias; return n;
+}
 int ast_contar_lista(Nodo *l) { int c = 0; for (; l; l = l->sig) c++; return c; }
 
 const char *nombre_tipo(TipoDato t) {
@@ -70,7 +78,8 @@ const char *nombre_tipo(TipoDato t) {
 const char *nombre_clase(ClaseNodo c) {
     static const char *n[] = { "PROGRAMA", "DECLARACION", "ASIGNACION", "IMPRIMIR",
         "LIT_INT", "LIT_FLOAT", "LIT_STR", "LIT_BOOL", "IDENTIFICADOR",
-        "OP_BINARIA", "OP_UNARIA", "FUNCION", "PARAMETRO", "RETORNO", "LLAMADA" };
+        "OP_BINARIA", "OP_UNARIA", "FUNCION", "PARAMETRO", "RETORNO", "LLAMADA",
+        "IF", "BLOQUE" };
     return n[c];
 }
 
@@ -106,6 +115,8 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
         case N_RETORNO:     snprintf(buf, tam, "%s", n->a ? "return valor" : "return"); break;
         case N_LLAMADA:     snprintf(buf, tam, "%s(%d arg)", n->nombre, ast_contar_lista(n->a)); break;
         case N_ID:          snprintf(buf, tam, "%s", n->nombre); break;
+        case N_SI:          snprintf(buf, tam, "if (condicion) %s", n->c ? "+ else" : "sin else"); break;
+        case N_BLOQUE:      snprintf(buf, tam, "%s { %d sentencia(s) }", n->nombre, ast_contar_lista(n->a)); break;
         default:            snprintf(buf, tam, "%s", n->nombre); break;
     }
 }
@@ -113,8 +124,8 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
 /* Devuelve los hijos de un nodo en el arreglo h (max 512) */
 static int hijos(Nodo *n, Nodo **h) {
     int k = 0;
-    if (n->clase == N_PROGRAMA || n->clase == N_LLAMADA) {
-        /* programa: sus sentencias; llamada: sus argumentos */
+    if (n->clase == N_PROGRAMA || n->clase == N_LLAMADA || n->clase == N_BLOQUE) {
+        /* programa y bloque: sus sentencias; llamada: sus argumentos */
         for (Nodo *s = n->a; s && k < 512; s = s->sig) h[k++] = s;
     } else if (n->clase == N_FUNCION) {
         /* funcion: primero los parametros y luego el cuerpo */
@@ -123,6 +134,7 @@ static int hijos(Nodo *n, Nodo **h) {
     } else {
         if (n->a) h[k++] = n->a;
         if (n->b) h[k++] = n->b;
+        if (n->c) h[k++] = n->c;     /* else del IF */
     }
     return k;
 }

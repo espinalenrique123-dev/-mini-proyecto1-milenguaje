@@ -6,6 +6,7 @@
  *  - Detecta division entre cero literal
  *  - Advierte variables sin inicializar o nunca usadas
  *  - Funciones: ambitos, parametros, llamadas y return
+ *  - IF: la condicion debe ser bool; cada bloque tiene su ambito
  * ============================================================ */
 #include <stdio.h>
 #include <stdarg.h>
@@ -44,6 +45,7 @@ static int es_cero_literal(Nodo *n) {
 
 /* Funcion que se esta analizando (NULL = estamos en el programa principal) */
 static Simbolo *funcion_actual = NULL;
+static int bloques_abiertos = 0;   /* cuantos bloques if/else rodean a la sentencia actual */
 
 static TipoDato revisar_expr(Nodo *e);
 
@@ -166,11 +168,51 @@ static Simbolo *declarar(const char *nombre, TipoDato t, Categoria cat, int line
         return NULL;
     }
     Simbolo *s = ts_insertar(nombre, t, cat, linea);
-    if (s && s->es_local && funcion_actual) s->slot = funcion_actual->num_locales++;
+    if (!s) return NULL;
+    /* Solo lo que vive dentro de una funcion va en su marco; las variables de un
+       bloque if del programa principal se guardan como las globales */
+    s->es_local = funcion_actual != NULL;
+    if (s->es_local) s->slot = funcion_actual->num_locales++;
     return s;
 }
 
 static void revisar_funcion(Nodo *f);
+static void revisar_sentencia(Nodo *s);
+
+/* Revisa un bloque { ... } del if/else dentro de su propio ambito */
+static void revisar_bloque(Nodo *bloque, int linea_if) {
+    char nombre[64];
+    if (funcion_actual)
+        snprintf(nombre, sizeof nombre, "%s>%s%d", funcion_actual->nombre, bloque->nombre, linea_if);
+    else
+        snprintf(nombre, sizeof nombre, "%s:%d", bloque->nombre, linea_if);
+    ts_entrar_ambito(nombre);
+    bloques_abiertos++;
+    for (Nodo *s = bloque->a; s; s = s->sig) revisar_sentencia(s);
+    bloques_abiertos--;
+    ts_salir_ambito();
+}
+
+/* 1 si la sentencia termina SIEMPRE con return (por todos los caminos) */
+static int siempre_retorna(Nodo *s);
+static int lista_siempre_retorna(Nodo *l) {
+    for (; l; l = l->sig) if (siempre_retorna(l)) return 1;
+    return 0;
+}
+static int siempre_retorna(Nodo *s) {
+    if (s->clase == N_RETORNO) return 1;
+    if (s->clase == N_SI)      /* solo si hay else y ambos caminos devuelven */
+        return s->c && lista_siempre_retorna(s->b->a) && lista_siempre_retorna(s->c->a);
+    return 0;
+}
+static int tiene_algun_return(Nodo *l) {
+    for (; l; l = l->sig) {
+        if (l->clase == N_RETORNO) return 1;
+        if (l->clase == N_SI && (tiene_algun_return(l->b->a) || (l->c && tiene_algun_return(l->c->a))))
+            return 1;
+    }
+    return 0;
+}
 
 static void revisar_sentencia(Nodo *s) {
     switch (s->clase) {
@@ -238,8 +280,22 @@ static void revisar_sentencia(Nodo *s) {
         break;
     }
     case N_FUNCION:
+        if (bloques_abiertos) {
+            error_sem(s->linea, "no se puede declarar la funcion '%s' dentro de un bloque if/else", s->nombre);
+            return;
+        }
         revisar_funcion(s);
         break;
+    case N_SI: {
+        /* La condicion del if debe ser de tipo bool */
+        TipoDato t = revisar_expr(s->a);
+        s->tipo = T_BOOL;
+        if (t != T_ERROR && t != T_BOOL)
+            error_sem(s->linea, "la condicion del 'if' debe ser bool, pero es de tipo %s", nombre_tipo(t));
+        revisar_bloque(s->b, s->linea);
+        if (s->c) revisar_bloque(s->c, s->linea);
+        break;
+    }
     default: break;
     }
 }
@@ -276,11 +332,16 @@ static void revisar_funcion(Nodo *f) {
         if (tiene_return)
             advertencia(s->linea, "este codigo esta despues de 'return' y nunca se ejecuta");
         revisar_sentencia(s);
-        if (s->clase == N_RETORNO) tiene_return = 1;
+        if (siempre_retorna(s)) tiene_return = 1;   /* return, o if/else que devuelve en ambos caminos */
     }
-    if (f->tipo != T_VOID && !tiene_return)
-        error_sem(f->linea, "la funcion '%s' debe devolver un valor de tipo %s, pero no tiene 'return'",
-                  f->nombre, nombre_tipo(f->tipo));
+    if (f->tipo != T_VOID && !tiene_return) {
+        if (tiene_algun_return(f->b))
+            error_sem(f->linea, "la funcion '%s' no devuelve un valor en todos los caminos "
+                      "(falta un 'else' con 'return')", f->nombre);
+        else
+            error_sem(f->linea, "la funcion '%s' debe devolver un valor de tipo %s, pero no tiene 'return'",
+                      f->nombre, nombre_tipo(f->tipo));
+    }
 
     /* 4. Salir del ambito de la funcion */
     ts_salir_ambito();
@@ -290,6 +351,7 @@ static void revisar_funcion(Nodo *f) {
 int analizar_semantica(Nodo *programa, int *adv) {
     errores = advertencias = 0;
     funcion_actual = NULL;
+    bloques_abiertos = 0;
     ts_iniciar();
     for (Nodo *s = programa->a; s; s = s->sig) revisar_sentencia(s);
 

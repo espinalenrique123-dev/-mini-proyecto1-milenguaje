@@ -179,6 +179,13 @@ static void ejecutar_sentencia(Nodo *s) {
         if (s->a) valor_retorno = evaluar(s->a);
         retornando = 1;
         break;
+    case N_SI: {               /* if: se evalua la condicion y se corre un solo bloque */
+        Valor c = evaluar(s->a);
+        if (error_ejecucion) break;
+        if (c.i)        ejecutar_lista(s->b->a);   /* condicion true  -> bloque if   */
+        else if (s->c)  ejecutar_lista(s->c->a);   /* condicion false -> bloque else */
+        break;
+    }
     case N_FUNCION:            /* la declaracion no se ejecuta; solo las llamadas */
     default: break;
     }

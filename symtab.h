@@ -39,8 +39,8 @@ typedef struct {
 } Simbolo;
 
 void     ts_iniciar(void);
-void     ts_entrar_ambito(const char *funcion);  /* entra a una funcion */
-void     ts_salir_ambito(void);                  /* vuelve a global     */
+void     ts_entrar_ambito(const char *nombre);   /* entra a una funcion o a un bloque if/else */
+void     ts_salir_ambito(void);                  /* vuelve al ambito anterior                 */
 const char *ts_ambito_actual(void);
 Simbolo *ts_buscar(const char *nombre);          /* ambito actual y luego global */
 Simbolo *ts_buscar_en_ambito(const char *nombre, const char *ambito);

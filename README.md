@@ -13,6 +13,7 @@ make                                   # compila -> genera ./milenguaje
 make run       # ejecuta el programa de ejemplo
 make tokens    # ejemplo + tabla de tokens
 make funciones # ejecuta el ejemplo de funciones (semana 7)
+make if        # ejecuta el ejemplo de if / else (semana 8)
 make errores   # ejecuta los ejemplos con errores
 ./demo.sh      # demostracion completa paso a paso
 make clean     # borra los archivos generados
@@ -37,7 +38,8 @@ Si una fase encuentra errores, la compilación se detiene ahí.
 
 | Token | Patrón | Ejemplo |
 |---|---|---|
-| Palabras reservadas | `var print func return void int float str bool true false` | `func` |
+| Palabras reservadas | `var print func return void if else int float str bool true false` | `if` |
+| Comparaciones en palabras | `is` (==), `is not` (!=), `greater` (>), `less` (<), `or` (\|\|) | `x is 10` |
 | ID (identificador) | letra o `_`, seguido de letras, dígitos o `_` | `edad`, `_total2` |
 | INT_LIT | uno o más dígitos | `25` |
 | FLOAT_LIT | dígitos `.` dígitos | `3.75` |
@@ -99,6 +101,30 @@ Reglas semánticas de las funciones:
 
 En la ejecución, cada llamada crea un **marco** con sus parámetros y variables locales, por eso una función puede llamarse muchas veces sin mezclar sus valores. La Tabla de Símbolos muestra la **categoría** (variable, parámetro o función) y el **ámbito** (`global` o el nombre de la función).
 
+### IF / ELSE (semana 8)
+
+```
+if <condicion> : {
+    <sentencias>
+} else {
+    <sentencias>
+}
+```
+
+- El `else` es opcional y los dos puntos `:` también (`if (x > y) { ... }` es válido).
+- La condición se puede escribir con símbolos (`x > y`, `x == y`) o con palabras como en el ejemplo del profesor (`x greater y`, `x is y`, `x is not y`, `x less y`, `a or b`).
+- Se puede usar en el programa principal, dentro de funciones y dentro de otro `if`.
+
+Reglas semánticas del `if`:
+
+1. **La condición debe ser de tipo `bool`**: `if edad : {...}` es un error porque `edad` es `int`.
+2. Cada bloque `{ }` tiene **su propio ámbito**: una variable declarada dentro del `if` no existe afuera. En la Tabla de Símbolos su ámbito aparece como `if:<línea>` o `else:<línea>`.
+3. Dentro de un bloque se puede **repetir el nombre** de una variable de afuera; adentro se usa la del bloque.
+4. Si una función devuelve un valor y usa `if`, **debe devolver en todos los caminos**: un `if` con `return` necesita su `else` con `return`.
+5. No se pueden declarar funciones dentro de un `if`.
+
+En el AST el `if` es un nodo **IF** con tres hijos: la condición, el **BLOQUE** del `if` y (si existe) el **BLOQUE** del `else`. Al ejecutar se evalúa la condición: si es `true` corre el bloque del `if`, si es `false` corre el del `else`.
+
 ### Reglas semánticas
 
 1. Una variable debe **declararse antes de usarse**.
@@ -117,6 +143,8 @@ En la ejecución, cada llamada crea un **marco** con sus parámetros y variables
 |---|---|
 | `ejemplos/programa.mil` | Programa correcto con todos los tipos y operadores |
 | `ejemplos/funciones.mil` | Funciones con parámetros, `return`, `void`, variables locales y llamadas anidadas |
+| `ejemplos/if.mil` | `if` / `else`, comparaciones con palabras, condición `bool`, `if` con funciones, `if` anidado y variables del bloque |
+| `ejemplos/error_if.mil` | Errores del `if`: condición no `bool`, tipos incompatibles, variable fuera de su bloque, `return` faltante en un camino |
 | `ejemplos/error_funciones.mil` | Errores de funciones: argumentos, tipos de retorno, `return` faltante, ámbito |
 | `ejemplos/error_lexico.mil` | Caracteres no reconocidos, cadena sin cerrar |
 | `ejemplos/error_sintactico.mil` | Falta `;`, falta `:`, falta expresión, falta `)` |

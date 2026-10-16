@@ -1,0 +1,59 @@
+// ======================================================
+// if.mil - Sentencia IF en MiLenguaje
+// Moises Moncada - IS-505 - Semana 8
+// ======================================================
+
+var:int edad = 20;
+var:str nombre = "Moises";
+
+// 1. if / else con una comparacion
+if edad >= 18 : {
+    print("Mayor de edad");
+} else {
+    print("Menor de edad");
+}
+
+// 2. if sin else, comparando con la palabra 'is' (igual)
+if nombre is "Moises" : {
+    print("Hola, " + nombre + "!");
+}
+
+// 3. Condicion guardada en una variable bool
+var:int x = 10;
+var:int y = 20;
+var:bool condicion = x greater y;
+
+if condicion : {
+    print("x es mayor que y");
+} else {
+    print("x es menor que y");
+}
+
+// 4. if con una llamada a funcion (como el ejemplo del profesor)
+func sumar(a:int, b:int):int {
+    return a + b;
+}
+
+if sumar(x, y) == 30 : {
+    print("la suma es 30");
+} else {
+    print("la suma no es 30");
+}
+
+// 5. if dentro de una funcion: devuelve un valor en cada camino
+func mayor(a:int, b:int):int {
+    if a > b : {
+        return a;
+    } else {
+        return b;
+    }
+}
+print(mayor(x, y));
+
+// 6. if dentro de otro if, con una variable que solo existe en el bloque
+if edad is not 0 : {
+    var:str mensaje = "adulto";
+    if x less y or x is y : {
+        print(mensaje + " y x no es mayor que y");
+    }
+}
