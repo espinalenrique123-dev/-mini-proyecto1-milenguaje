@@ -1,0 +1,27 @@
+// error_arreglos.mil - Errores semanticos de los arreglos
+var:int[] numeros = [1, 2, 3];
+var:int edad = 20;
+
+// 1. Elementos de distinto tipo en el mismo arreglo
+var:int[] mezcla = [1, "dos", 3];
+
+// 2. Guardar un arreglo de str en un arreglo de int
+var:int[] copia = ["a", "b"];
+
+// 3. El indice debe ser int
+print(numeros["0"]);
+
+// 4. Usar [ ] con una variable que no es arreglo
+print(edad[0]);
+
+// 5. push con un valor de otro tipo
+numeros.push("cuatro");
+
+// 6. Metodo que no existe
+numeros.sort();
+
+// 7. pop no recibe argumentos
+var:int x = numeros.pop(1);
+
+// 8. push no devuelve un valor
+print(numeros.push(5));

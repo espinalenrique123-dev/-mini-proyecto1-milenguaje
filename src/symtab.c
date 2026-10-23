@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "symtab.h"
+#include "arreglos.h"
 
 #define MAX_SIMBOLOS 512
 static Simbolo tabla[MAX_SIMBOLOS];
@@ -77,16 +78,19 @@ void valor_a_texto(Valor v, char *buf, int tam) {
             break;
         case T_BOOL:  snprintf(buf, tam, "%s", v.i ? "true" : "false"); break;
         case T_STR:   snprintf(buf, tam, "%s", v.s); break;
-        default:      snprintf(buf, tam, "-"); break;
+        default:
+            if (es_arreglo(v.tipo)) arreglo_a_texto(v.arr, buf, tam);   /* [1, 2, 3] */
+            else snprintf(buf, tam, "-");
+            break;
     }
 }
 
 void ts_imprimir(int con_valores) {
     const char *sep = con_valores
-        ? "+----+-------------+-------------+-------+-------------+-------+------+------+----------------------+\n"
-        : "+----+-------------+-------------+-------+-------------+-------+------+------+\n";
+        ? "+----+-------------+-------------+---------+-------------+-------+------+------+----------------------+\n"
+        : "+----+-------------+-------------+---------+-------------+-------+------+------+\n";
     printf("%s", sep);
-    printf("| %-2s | %-11s | %-11s | %-5s | %-11s | %-5s | %-4s | %-4s |", "#", "NOMBRE",
+    printf("| %-2s | %-11s | %-11s | %-7s | %-11s | %-5s | %-4s | %-4s |", "#", "NOMBRE",
            "CATEGORIA", "TIPO", "AMBITO", "LINEA", "INIC", "USOS");
     if (con_valores) printf(" %-20s |", "VALOR");
     printf("\n%s", sep);
@@ -96,7 +100,7 @@ void ts_imprimir(int con_valores) {
         char cat[16];
         if (s->categoria == S_FUNCION) snprintf(cat, sizeof cat, "funcion(%d)", s->num_params);
         else snprintf(cat, sizeof cat, "%s", nombre_categoria(s->categoria));
-        printf("| %-2d | %-11.11s | %-11.11s | %-5s | %-11.11s | %-5d | %-4s | %-4d |", i + 1,
+        printf("| %-2d | %-11.11s | %-11.11s | %-7s | %-11.11s | %-5d | %-4s | %-4d |", i + 1,
                s->nombre, cat, nombre_tipo(s->tipo), s->ambito, s->linea,
                s->categoria == S_FUNCION ? "-" : (s->inicializada ? "si" : "no"), s->usos);
         if (con_valores) {

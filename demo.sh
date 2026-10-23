@@ -15,6 +15,7 @@ correr() { ./milenguaje "$@" | ./colores.sh | less -R; }
 
 clear
 ls --color=auto
+echo; ls --color=auto src include
 pausa "codigo fuente"
 ver ejemplos/programa.mil
 pausa "compilar"
@@ -31,8 +32,12 @@ pausa "if / else (codigo)"
 ver ejemplos/if.mil
 pausa "if / else (resultado)"
 correr ejemplos/if.mil
+pausa "arreglos (codigo)"
+ver ejemplos/arreglos.mil
+pausa "arreglos (resultado)"
+correr ejemplos/arreglos.mil
 pausa "errores"
-for f in error_lexico error_sintactico error_semantico error_ejecucion error_funciones error_if; do
+for f in error_lexico error_sintactico error_semantico error_ejecucion error_funciones error_if error_arreglos error_arreglos_ejecucion; do
     ver ejemplos/$f.mil
     pausa "ver el resultado de $f"
     correr ejemplos/$f.mil

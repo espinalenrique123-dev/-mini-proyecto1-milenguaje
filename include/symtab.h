@@ -7,12 +7,15 @@
 #define SYMTAB_H
 #include "ast.h"
 
+struct Arreglo;      /* definido en arreglos.h */
+
 /* Valor en memoria de una variable (lo usa la ejecucion) */
 typedef struct {
     TipoDato tipo;
     long long i;     /* int / bool */
     double f;        /* float      */
     char *s;         /* str        */
+    struct Arreglo *arr;   /* int[], float[], str[], bool[] (semana 9) */
 } Valor;
 
 /* Que clase de simbolo es */

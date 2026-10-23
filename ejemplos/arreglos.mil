@@ -1,0 +1,63 @@
+// ======================================================
+// arreglos.mil - Arreglos (arrays) en MiLenguaje
+// Moises Moncada - IS-505 - Semana 9
+// ======================================================
+
+// 1. Declarar un arreglo con valores: var:<tipo>[] nombre = [ ... ];
+var:str[] letras = ["a", "b", "c"];
+print(letras);
+
+// 2. Leer un elemento con su indice (el primero es el 0)
+var:int[] valores = [10, 20, 30];
+var:int indice = 1;
+var:int elegido = valores[indice];
+print(elegido);
+print(valores.length());
+
+// 3. push agrega al final; length dice cuantos hay
+valores.push(40);
+var:int ultimo = valores[valores.length() - 1];
+print(ultimo);
+print(valores.length());
+
+// 4. pop quita el ultimo y lo devuelve
+var:int quitado = valores.pop();
+print(quitado);
+print(valores);
+
+// 5. Arreglo vacio que se llena con push
+var:int[] numeros = [];
+numeros.push(1);
+numeros.push(2);
+numeros.push(3);
+numeros.push(4);
+numeros.push(5);
+var:int sacado = numeros.pop();
+print(sacado);
+print(numeros);
+
+// 6. Arreglos de float y bool (los int se convierten a float)
+var:float[] notas = [90, 85.5, 100];
+print(notas);
+var:bool[] respuestas = [true, false, true];
+print(respuestas[2]);
+
+// 7. Arreglos con funciones: el arreglo se pasa como parametro
+func sumar_tres(lista:int[]):int {
+    return lista[0] + lista[1] + lista[2];
+}
+print(sumar_tres(numeros));
+
+func crear_lista(n:int):int[] {
+    var:int[] lista = [n, n * 2];
+    return lista;
+}
+var:int[] dobles = crear_lista(7);
+print(dobles);
+
+// 8. Arreglos con if
+if valores.length() greater 2 : {
+    print("valores tiene mas de 2 elementos; la primera letra es " + letras[0]);
+} else {
+    print("valores tiene pocos elementos");
+}

@@ -14,21 +14,48 @@ make run       # ejecuta el programa de ejemplo
 make tokens    # ejemplo + tabla de tokens
 make funciones # ejecuta el ejemplo de funciones (semana 7)
 make if        # ejecuta el ejemplo de if / else (semana 8)
+make arreglos  # ejecuta el ejemplo de arreglos (semana 9)
 make errores   # ejecuta los ejemplos con errores
 ./demo.sh      # demostracion completa paso a paso
 make clean     # borra los archivos generados
+```
+
+## Estructura del proyecto
+
+```
+.
+├── Makefile
+├── README.md
+├── demo.sh / colores.sh      demostración y salida con colores
+├── include/                  cabeceras (.h)
+│   ├── ast.h  symtab.h  semantico.h  ejecutor.h  arreglos.h
+│   └── parser.h  lexer.h
+├── src/
+│   ├── main.c                programa principal (coordina las fases)
+│   ├── symtab.c              tabla de símbolos
+│   ├── lexer/scanner.l       análisis léxico (Flex)
+│   ├── parser/parser.y       análisis sintáctico (Bison)
+│   ├── ast/ast.c             árbol de sintaxis abstracta
+│   ├── semantico/semantico.c análisis semántico
+│   └── runtime/              ejecución
+│       ├── ejecutor.c
+│       └── arreglos.c
+├── ejemplos/                 programas de prueba (.mil)
+└── build/                    archivos generados al compilar (no se suben a GitHub)
 ```
 
 ## Fases del compilador
 
 | Fase | Archivo | Qué hace |
 |---|---|---|
-| 1. Análisis léxico | `scanner.l` | Convierte el texto en tokens; reporta caracteres inválidos y cadenas sin cerrar |
-| 2. Análisis sintáctico | `parser.y` | Verifica la gramática y construye el **AST** |
-| 3. Análisis semántico | `semantico.c` | Llena la **Tabla de Símbolos**, revisa tipos y declara el tipo de cada nodo |
-| 4. Ejecución | `ejecutor.c` | Recorre el AST y ejecuta el programa |
-| AST | `ast.c` | Árbol gráfico y **Tabla AST** |
-| Tabla de símbolos | `symtab.c` | Guarda nombre, tipo, ámbito, línea, inicialización, usos y valor |
+| 1. Análisis léxico | `src/lexer/scanner.l` | Convierte el texto en tokens; reporta caracteres inválidos y cadenas sin cerrar |
+| 2. Análisis sintáctico | `src/parser/parser.y` | Verifica la gramática y construye el **AST** |
+| 3. Análisis semántico | `src/semantico/semantico.c` | Llena la **Tabla de Símbolos**, revisa tipos y declara el tipo de cada nodo |
+| 4. Ejecución | `src/runtime/ejecutor.c` | Recorre el AST y ejecuta el programa |
+| Arreglos | `src/runtime/arreglos.c` | Crea los arreglos y hace `push`, `pop` y `length` |
+| AST | `src/ast/ast.c` | Árbol gráfico y **Tabla AST** |
+| Tabla de símbolos | `src/symtab.c` | Guarda nombre, tipo, ámbito, línea, inicialización, usos y valor |
+| Programa principal | `src/main.c` | Llama a cada fase en orden y muestra sus tablas |
 
 Si una fase encuentra errores, la compilación se detiene ahí.
 
@@ -45,7 +72,7 @@ Si una fase encuentra errores, la compilación se detiene ahí.
 | FLOAT_LIT | dígitos `.` dígitos | `3.75` |
 | STR_LIT | texto entre comillas dobles | `"Moises"` |
 | Operadores | `+ - * /` `< > <= >= == !=` `&& \|\| !` `=` | |
-| Signos | `: ; ( ) { } ,` | |
+| Signos | `: ; ( ) { } , [ ] .` | |
 | Comentarios | `//` hasta el final de la línea (se ignoran) | |
 
 ### Reglas sintácticas (gramática)
@@ -125,6 +152,43 @@ Reglas semánticas del `if`:
 
 En el AST el `if` es un nodo **IF** con tres hijos: la condición, el **BLOQUE** del `if` y (si existe) el **BLOQUE** del `else`. Al ejecutar se evalúa la condición: si es `true` corre el bloque del `if`, si es `false` corre el del `else`.
 
+### Arreglos (semana 9)
+
+```
+TIPO_ARREGLO → int[] | float[] | str[] | bool[]
+declaracion  → var : TIPO_ARREGLO ID = [ elementos ] ;
+             | var : TIPO_ARREGLO ID ;              (empieza vacío: [])
+acceso       → ID [ expr ]                          (el primer elemento es el 0)
+metodo       → ID . push ( expr )                   agrega al final
+             | ID . pop ( )                         quita el último y lo devuelve
+             | ID . length ( )                      cantidad de elementos (int)
+```
+
+Ejemplo (como el del profesor):
+
+```
+var:int[] valores = [10, 20, 30];
+var:int elegido = valores[1];          // 20
+valores.push(40);                      // [10, 20, 30, 40]
+var:int ultimo = valores[valores.length() - 1];
+var:int quitado = valores.pop();       // 40
+print(valores);                        // [10, 20, 30]
+```
+
+Reglas semánticas de los arreglos:
+
+1. **Todos los elementos son del mismo tipo** (`[1, "dos"]` es un error). Si se mezclan `int` y `float`, el arreglo es `float[]`.
+2. El arreglo se guarda solo en una variable de **su mismo tipo**: `var:int[] x = ["a"];` es un error. El literal vacío `[]` sirve para cualquier tipo, y `[1, 2]` se puede guardar en un `float[]` (los `int` pasan a `float`).
+3. El **índice debe ser `int`** y solo se usa `[ ]` con variables que son arreglos.
+4. `push` recibe **un valor del tipo de los elementos**; `pop` y `length` no reciben argumentos. Otros métodos no existen.
+5. `push` no devuelve valor (no se puede imprimir); `pop` devuelve un elemento y `length` un `int`.
+6. Los arreglos se pueden usar como **parámetros y tipo de retorno** de funciones (`func f(lista:int[]):int[]`). La función recibe el mismo arreglo (referencia), así que un `push` dentro de la función se ve afuera.
+7. No se permiten arreglos dentro de arreglos, ni `+`, `==` u otros operadores entre arreglos.
+
+Errores de ejecución: usar un **índice fuera del arreglo** (`valores[5]` cuando tiene 3) o hacer **`pop` a un arreglo vacío**.
+
+En el AST hay tres nodos nuevos: **ARREGLO** (sus hijos son los elementos), **INDICE** (su hijo es el índice) y **METODO** (sus hijos son los argumentos).
+
 ### Reglas semánticas
 
 1. Una variable debe **declararse antes de usarse**.
@@ -145,6 +209,9 @@ En el AST el `if` es un nodo **IF** con tres hijos: la condición, el **BLOQUE**
 | `ejemplos/funciones.mil` | Funciones con parámetros, `return`, `void`, variables locales y llamadas anidadas |
 | `ejemplos/if.mil` | `if` / `else`, comparaciones con palabras, condición `bool`, `if` con funciones, `if` anidado y variables del bloque |
 | `ejemplos/error_if.mil` | Errores del `if`: condición no `bool`, tipos incompatibles, variable fuera de su bloque, `return` faltante en un camino |
+| `ejemplos/arreglos.mil` | Arreglos: declarar, `[i]`, `push`, `pop`, `length`, arreglos vacíos, `float[]`/`bool[]`, arreglos con funciones e `if` |
+| `ejemplos/error_arreglos.mil` | Errores de arreglos: tipos mezclados, índice no `int`, `[ ]` en una variable que no es arreglo, método inexistente, argumentos |
+| `ejemplos/error_arreglos_ejecucion.mil` | Índice fuera del arreglo detectado al ejecutar |
 | `ejemplos/error_funciones.mil` | Errores de funciones: argumentos, tipos de retorno, `return` faltante, ámbito |
 | `ejemplos/error_lexico.mil` | Caracteres no reconocidos, cadena sin cerrar |
 | `ejemplos/error_sintactico.mil` | Falta `;`, falta `:`, falta expresión, falta `)` |

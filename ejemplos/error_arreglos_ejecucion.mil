@@ -1,0 +1,5 @@
+// error_arreglos_ejecucion.mil - Indice fuera del arreglo (error al ejecutar)
+var:int[] numeros = [10, 20, 30];
+var:int i = 3;
+print(numeros[0]);
+print(numeros[i]);

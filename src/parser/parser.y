@@ -1,6 +1,7 @@
 /* ============================================================
  * parser.y - Analizador Sintactico de MiLenguaje (Bison)
- * Construye el AST y coordina todas las fases del compilador
+ * Verifica la gramatica y construye el AST
+ * (el programa principal esta en src/main.c)
  * Mini Proyecto 1 - IS-505 - Moises Moncada
  * ============================================================ */
 %{
@@ -8,19 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ast.h"
-#include "symtab.h"
-#include "semantico.h"
-#include "ejecutor.h"
+#include "parser.h"
+#include "lexer.h"
 
-int yylex(void);
 void yyerror(const char *s);
-extern FILE *yyin;
-extern int errores_lexicos;
-extern int linea_token_previo;
-extern char *yytext;
 
 int errores_sintacticos = 0;
-int mostrar_tokens = 0;
 Nodo *raiz = NULL;
 %}
 
@@ -49,8 +43,8 @@ Nodo *raiz = NULL;
 
 %type <nodo> lista_sentencias sentencia declaracion asignacion impresion expr
 %type <nodo> funcion parametros_opt parametros parametro cuerpo retorno llamada argumentos_opt argumentos
-%type <nodo> si bloque sino_opt
-%type <tipo> tipo_retorno
+%type <nodo> si bloque sino_opt metodo
+%type <tipo> tipo tipo_retorno
 
 /* Precedencia: de menor (arriba) a mayor (abajo) */
 %left OR
@@ -82,14 +76,21 @@ sentencia
     | retorno
     | si
     | llamada ';'                       { $$ = $1; }
+    | metodo ';'                        { $$ = $1; }
     | error ';'                         { yyerrok; $$ = NULL; }   /* recuperacion */
     | error '}'                         { yyerrok; $$ = NULL; }
     ;
 
 /* var : <tipo> <identificador> ;   |   var : <tipo> <identificador> = <expresion> ; */
 declaracion
-    : VAR ':' TIPO ID ';'               { $$ = ast_declaracion($3, $4, NULL, @1.first_line); }
-    | VAR ':' TIPO ID '=' expr ';'      { $$ = ast_declaracion($3, $4, $6,   @1.first_line); }
+    : VAR ':' tipo ID ';'               { $$ = ast_declaracion($3, $4, NULL, @1.first_line); }
+    | VAR ':' tipo ID '=' expr ';'      { $$ = ast_declaracion($3, $4, $6,   @1.first_line); }
+    ;
+
+/* <tipo> puede ser basico (int) o un arreglo (int[])  -- arreglos: semana 9 */
+tipo
+    : TIPO
+    | TIPO '[' ']'                      { $$ = tipo_arreglo($1); }
     ;
 
 /* <identificador> = <expresion> ; */
@@ -111,7 +112,7 @@ funcion
     ;
 
 tipo_retorno
-    : TIPO
+    : tipo
     | VOID
     ;
 
@@ -127,7 +128,7 @@ parametros
     ;
 
 parametro
-    : ID ':' TIPO                       { $$ = ast_parametro($1, $3, @1.first_line); }
+    : ID ':' tipo                       { $$ = ast_parametro($1, $3, @1.first_line); }
     ;
 
 /* El cuerpo es una lista de sentencias (el semantico prohibe funciones anidadas) */
@@ -164,6 +165,12 @@ sino_opt
 
 bloque
     : '{' cuerpo '}'                    { $$ = ast_bloque("", $2, @1.first_line); }
+    ;
+
+/* ---------------- ARREGLOS (semana 9) ----------------
+   <arreglo> . <metodo> ( <argumentos> )     metodos: push(x), pop(), length() */
+metodo
+    : ID '.' ID '(' argumentos_opt ')'  { $$ = ast_metodo($1, $3, $5, @1.first_line); }
     ;
 
 /* <nombre> ( <argumentos> ) */
@@ -203,6 +210,9 @@ expr
     | BOOL_LIT                          { $$ = ast_bool((int)$1, @1.first_line); }
     | ID                                { $$ = ast_id($1,    @1.first_line); }
     | llamada
+    | '[' argumentos_opt ']'            { $$ = ast_arreglo($2, @1.first_line); }   /* [1, 2, 3] */
+    | ID '[' expr ']'                   { $$ = ast_indice($1, $3, @1.first_line); } /* lista[i]  */
+    | metodo                                                                         /* lista.pop() */
     ;
 
 %%
@@ -250,75 +260,4 @@ static int yyreport_syntax_error(const yypcontext_t *ctx) {
         printf("\n");
     }
     return 0;
-}
-
-static void titulo(const char *t) {
-    printf("\n==================================================================\n");
-    printf("  %s\n", t);
-    printf("==================================================================\n");
-}
-
-int main(int argc, char **argv) {
-    const char *archivo = NULL;
-    for (int i = 1; i < argc; i++) {
-        if (strcmp(argv[i], "-t") == 0) mostrar_tokens = 1;
-        else archivo = argv[i];
-    }
-    if (!archivo) {
-        printf("Uso: %s [-t] archivo.mil\n   -t  muestra la tabla de tokens\n", argv[0]);
-        return 1;
-    }
-    yyin = fopen(archivo, "r");
-    if (!yyin) { printf("No se pudo abrir el archivo '%s'\n", archivo); return 1; }
-
-    printf("\n  COMPILADOR DE MiLenguaje  -  archivo: %s\n", archivo);
-
-    /* ---------- FASE 1 y 2: lexico + sintactico ---------- */
-    titulo("FASE 1-2: ANALISIS LEXICO Y SINTACTICO");
-    if (mostrar_tokens) {
-        printf("  +-------+----------------+----------------------+\n");
-        printf("  | LINEA | TOKEN          | LEXEMA               |\n");
-        printf("  +-------+----------------+----------------------+\n");
-    }
-    yyparse();
-    if (mostrar_tokens) printf("  +-------+----------------+----------------------+\n");
-
-    if (errores_lexicos || errores_sintacticos) {
-        printf("\n  Resultado: %d error(es) lexico(s), %d error(es) sintactico(s).\n",
-               errores_lexicos, errores_sintacticos);
-        printf("  Compilacion detenida.\n\n");
-        return 1;
-    }
-    printf("  [OK] Programa lexica y sintacticamente correcto (%d sentencias).\n",
-           ast_contar_sentencias(raiz));
-
-    titulo("ARBOL DE SINTAXIS ABSTRACTA (AST)");
-    ast_imprimir_arbol(raiz);
-
-    /* ---------- FASE 3: semantico ---------- */
-    titulo("FASE 3: ANALISIS SEMANTICO");
-    int advertencias = 0;
-    int errores_sem = analizar_semantica(raiz, &advertencias);
-    if (errores_sem == 0)
-        printf("  [OK] Sin errores semanticos (%d advertencia(s)).\n", advertencias);
-    else
-        printf("\n  Resultado: %d error(es) semantico(s), %d advertencia(s).\n", errores_sem, advertencias);
-
-    titulo("TABLA AST (decorada con tipos)");
-    ast_imprimir_tabla(raiz);
-
-    titulo("TABLA DE SIMBOLOS");
-    ts_imprimir(0);
-
-    if (errores_sem) { printf("\n  Compilacion detenida: corrija los errores semanticos.\n\n"); return 1; }
-
-    /* ---------- FASE 4: ejecucion ---------- */
-    titulo("FASE 4: EJECUCION DEL PROGRAMA");
-    int fallo = ejecutar(raiz);
-
-    titulo("ESTADO FINAL DE LA MEMORIA");
-    ts_imprimir(1);
-    printf("\n  %s\n\n", fallo ? "El programa termino con un error de ejecucion."
-                               : "Programa ejecutado correctamente.");
-    return fallo;
 }

@@ -6,12 +6,16 @@
  * con sus parametros y variables locales. Las variables globales
  * viven en la Tabla de Simbolos. Asi una funcion puede llamarse
  * varias veces (o a si misma) sin mezclar sus variables.
+ *
+ * Arreglos (semana 9): la variable guarda un puntero al arreglo;
+ * los elementos viven en arreglos.c.
  * ============================================================ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "ejecutor.h"
 #include "symtab.h"
+#include "arreglos.h"
 
 static int error_ejecucion = 0;
 
@@ -40,8 +44,46 @@ static Valor convertir(Valor v, TipoDato destino) {
     return v;
 }
 
+/* Crea un arreglo vacio del tipo indicado (int[] -> arreglo de int) */
+static Valor arreglo_vacio(TipoDato tipo) {
+    Valor v = { tipo, 0, 0.0, "", NULL };
+    v.arr = arreglo_nuevo(tipo_elemento(tipo));
+    if (!v.arr) {
+        printf("  [X] Error de ejecucion: no hay memoria para crear el arreglo\n");
+        error_ejecucion = 1;
+    }
+    return v;
+}
+
+static Valor evaluar(Nodo *e);
+
+/* Ejecuta lista.push(x) / lista.pop() / lista.length() */
+static Valor evaluar_metodo(Nodo *e) {
+    Valor r = { e->tipo, 0, 0.0, "", NULL };
+    Arreglo *a = leer((Simbolo *)e->sim).arr;
+    if (!a) return r;
+    if (strcmp(e->sval, "push") == 0) {
+        Valor v = convertir(evaluar(e->a), a->tipo_elem);
+        if (error_ejecucion) return r;
+        if (!arreglo_push(a, v)) {
+            printf("  [X] Error de ejecucion (linea %d): no hay memoria para agregar a '%s'\n",
+                   e->linea, e->nombre);
+            error_ejecucion = 1;
+        }
+    } else if (strcmp(e->sval, "pop") == 0) {
+        if (!arreglo_pop(a, &r)) {
+            printf("  [X] Error de ejecucion (linea %d): no se puede hacer pop, "
+                   "el arreglo '%s' esta vacio\n", e->linea, e->nombre);
+            error_ejecucion = 1;
+        }
+    } else {                                   /* length */
+        r.i = a->largo;
+    }
+    return r;
+}
+
 static Valor evaluar(Nodo *e) {
-    Valor r = { e->tipo, 0, 0.0, "" };
+    Valor r = { e->tipo, 0, 0.0, "", NULL };
     if (error_ejecucion) return r;
 
     switch (e->clase) {
@@ -50,6 +92,38 @@ static Valor evaluar(Nodo *e) {
     case N_LIT_FLOAT: r.f = e->fval; break;
     case N_LIT_STR:   r.s = e->sval; break;
     case N_ID:        r = leer((Simbolo *)e->sim); break;
+
+    case N_ARREGLO: {                     /* [e1, e2, ...] crea un arreglo nuevo */
+        r = arreglo_vacio(e->tipo);
+        for (Nodo *x = e->a; x && !error_ejecucion; x = x->sig) {
+            Valor v = convertir(evaluar(x), r.arr->tipo_elem);
+            if (!error_ejecucion && !arreglo_push(r.arr, v)) {
+                printf("  [X] Error de ejecucion (linea %d): no hay memoria para el arreglo\n", e->linea);
+                error_ejecucion = 1;
+            }
+        }
+        break;
+    }
+
+    case N_INDICE: {                      /* lista[i] */
+        Valor idx = evaluar(e->a);
+        if (error_ejecucion) return r;
+        Arreglo *a = leer((Simbolo *)e->sim).arr;
+        int largo = a ? a->largo : 0;
+        if (idx.i < 0 || idx.i >= largo) {
+            if (largo == 0)
+                printf("  [X] Error de ejecucion (linea %d): el indice %lld no existe, "
+                       "el arreglo '%s' esta vacio\n", e->linea, idx.i, e->nombre);
+            else
+                printf("  [X] Error de ejecucion (linea %d): el indice %lld esta fuera del arreglo '%s' "
+                       "(indices validos: 0 a %d)\n", e->linea, idx.i, e->nombre, largo - 1);
+            error_ejecucion = 1; return r;
+        }
+        r = a->items[idx.i];
+        break;
+    }
+
+    case N_METODO: r = evaluar_metodo(e); break;
 
     case N_LLAMADA: {
         Simbolo *f = (Simbolo *)e->sim;
@@ -153,8 +227,9 @@ static void ejecutar_sentencia(Nodo *s) {
     switch (s->clase) {
     case N_DECLARACION: {
         Simbolo *sim = (Simbolo *)s->sim;
-        Valor v = { s->tipo, 0, 0.0, "" };      /* valor por defecto */
+        Valor v = { s->tipo, 0, 0.0, "", NULL };   /* valor por defecto */
         if (s->a) v = convertir(evaluar(s->a), s->tipo);
+        else if (es_arreglo(s->tipo)) v = arreglo_vacio(s->tipo);   /* var:int[] v;  ->  [] */
         if (!error_ejecucion) escribir(sim, v);
         break;
     }
@@ -173,6 +248,7 @@ static void ejecutar_sentencia(Nodo *s) {
         break;
     }
     case N_LLAMADA:            /* f(x);  el valor devuelto se descarta */
+    case N_METODO:             /* lista.push(x);  lista.pop(); */
         evaluar(s);
         break;
     case N_RETORNO:
@@ -205,7 +281,7 @@ int ejecutar(Nodo *programa) {
     /* La memoria arranca con valores por defecto: 0, 0.0, "", false */
     for (int i = 0; i < ts_cantidad(); i++) {
         Simbolo *s = ts_obtener(i);
-        Valor v = { s->tipo, 0, 0.0, "" };
+        Valor v = { s->tipo, 0, 0.0, "", NULL };
         s->valor = v;
     }
     ejecutar_lista(programa->a);

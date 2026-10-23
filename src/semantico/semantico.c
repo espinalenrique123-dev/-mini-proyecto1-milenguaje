@@ -7,6 +7,8 @@
  *  - Advierte variables sin inicializar o nunca usadas
  *  - Funciones: ambitos, parametros, llamadas y return
  *  - IF: la condicion debe ser bool; cada bloque tiene su ambito
+ *  - Arreglos: elementos del mismo tipo, indice int, metodos
+ *    push / pop / length
  * ============================================================ */
 #include <stdio.h>
 #include <stdarg.h>
@@ -34,9 +36,20 @@ static void advertencia(int linea, const char *fmt, ...) {
 static int es_numerico(TipoDato t) { return t == T_INT || t == T_FLOAT; }
 static int es_op(Nodo *n, const char *op) { return strcmp(n->nombre, op) == 0; }
 
-/* Regla de compatibilidad: mismo tipo, o int -> float (promocion) */
+/* Regla de compatibilidad: mismo tipo, o int -> float (promocion).
+   El arreglo vacio [] sirve para cualquier tipo de arreglo. */
 static int compatible(TipoDato destino, TipoDato origen) {
-    return destino == origen || (destino == T_FLOAT && origen == T_INT);
+    return destino == origen || (destino == T_FLOAT && origen == T_INT)
+        || (es_arreglo(destino) && origen == T_ARR_VACIO);
+}
+
+/* Un literal [ ... ] toma el tipo del lugar donde se guarda:
+   var:float[] notas = [10, 9];  -> el literal pasa a ser float[]
+   var:str[] vacia = [];         -> el literal pasa a ser str[]        */
+static void ajustar_literal(Nodo *e, TipoDato destino) {
+    if (e->clase != N_ARREGLO || !es_arreglo(destino) || destino == T_ARR_VACIO) return;
+    if (e->tipo == T_ARR_VACIO || (destino == T_FLOAT_ARR && e->tipo == T_INT_ARR))
+        e->tipo = destino;
 }
 
 static int es_cero_literal(Nodo *n) {
@@ -48,6 +61,88 @@ static Simbolo *funcion_actual = NULL;
 static int bloques_abiertos = 0;   /* cuantos bloques if/else rodean a la sentencia actual */
 
 static TipoDato revisar_expr(Nodo *e);
+
+/* ---------- Arreglos (semana 9) ---------- */
+
+/* Busca la variable de un arreglo para lista[i] o lista.metodo() */
+static Simbolo *buscar_arreglo(Nodo *e) {
+    Simbolo *s = ts_buscar(e->nombre);
+    if (!s) {
+        error_sem(e->linea, "el arreglo '%s' no ha sido declarado", e->nombre);
+        return NULL;
+    }
+    if (s->categoria != S_FUNCION) s->usos++;     /* cuenta como uso aunque luego haya error */
+    if (s->categoria == S_FUNCION || !es_arreglo(s->tipo)) {
+        error_sem(e->linea, "'%s' no es un arreglo (es %s de tipo %s)", e->nombre,
+                  nombre_categoria(s->categoria), nombre_tipo(s->tipo));
+        return NULL;
+    }
+    e->sim = s;
+    return s;
+}
+
+/* [e1, e2, ...]: todos los elementos deben ser del mismo tipo basico */
+static TipoDato revisar_arreglo(Nodo *e) {
+    TipoDato elem = T_NINGUNO;
+    int hay_error = 0, pos = 0;
+    for (Nodo *x = e->a; x; x = x->sig) {
+        TipoDato t = revisar_expr(x);
+        pos++;
+        if (t == T_ERROR) { hay_error = 1; continue; }
+        if (es_arreglo(t) || t == T_VOID) {
+            error_sem(e->linea, "el elemento %d del arreglo es de tipo %s; "
+                      "solo se permiten int, float, str o bool", pos, nombre_tipo(t));
+            hay_error = 1; continue;
+        }
+        if (elem == T_NINGUNO || elem == t) elem = t;
+        else if ((elem == T_INT && t == T_FLOAT) || (elem == T_FLOAT && t == T_INT)) elem = T_FLOAT;
+        else {
+            error_sem(e->linea, "todos los elementos del arreglo deben ser del mismo tipo "
+                      "(el elemento %d es %s y los anteriores son %s)", pos, nombre_tipo(t), nombre_tipo(elem));
+            hay_error = 1;
+        }
+    }
+    if (hay_error) return e->tipo = T_ERROR;
+    return e->tipo = (elem == T_NINGUNO) ? T_ARR_VACIO : tipo_arreglo(elem);
+}
+
+/* lista[i]: el indice debe ser int; el resultado es del tipo de los elementos */
+static TipoDato revisar_indice(Nodo *e) {
+    TipoDato ti = revisar_expr(e->a);
+    Simbolo *s = buscar_arreglo(e);
+    if (ti != T_ERROR && ti != T_INT)
+        error_sem(e->linea, "el indice de '%s' debe ser int, pero es de tipo %s", e->nombre, nombre_tipo(ti));
+    if (!s || (ti != T_ERROR && ti != T_INT)) return e->tipo = T_ERROR;
+    return e->tipo = tipo_elemento(s->tipo);
+}
+
+/* lista.push(x)  lista.pop()  lista.length() */
+static TipoDato revisar_metodo(Nodo *e) {
+    int n_args = 0;
+    for (Nodo *a = e->a; a; a = a->sig) { revisar_expr(a); n_args++; }
+    Simbolo *s = buscar_arreglo(e);
+    if (!s) return e->tipo = T_ERROR;
+    TipoDato elem = tipo_elemento(s->tipo);
+    const char *m = e->sval;
+
+    int esperados;
+    TipoDato resultado;
+    if      (strcmp(m, "push") == 0)   { esperados = 1; resultado = T_VOID; }
+    else if (strcmp(m, "pop") == 0)    { esperados = 0; resultado = elem;   }
+    else if (strcmp(m, "length") == 0) { esperados = 0; resultado = T_INT;  }
+    else {
+        error_sem(e->linea, "los arreglos no tienen el metodo '%s' (use push, pop o length)", m);
+        return e->tipo = T_ERROR;
+    }
+    if (n_args != esperados) {
+        error_sem(e->linea, "el metodo '%s' espera %d argumento(s), pero recibio %d", m, esperados, n_args);
+        return e->tipo = T_ERROR;
+    }
+    if (esperados == 1 && e->a->tipo != T_ERROR && !compatible(elem, e->a->tipo))
+        error_sem(e->linea, "no se puede agregar un valor %s al arreglo '%s' que es %s",
+                  nombre_tipo(e->a->tipo), e->nombre, nombre_tipo(s->tipo));
+    return e->tipo = resultado;
+}
 
 /* ---------- Llamada a funcion: f(arg1, arg2, ...) ---------- */
 static TipoDato revisar_llamada(Nodo *e) {
@@ -74,6 +169,7 @@ static TipoDato revisar_llamada(Nodo *e) {
     /* Cada argumento debe ser compatible con su parametro */
     Nodo *p = f->funcion->a, *a = e->a;
     for (int i = 1; p && a; p = p->sig, a = a->sig, i++) {
+        ajustar_literal(a, p->tipo);
         if (a->tipo != T_ERROR && !compatible(p->tipo, a->tipo))
             error_sem(e->linea, "argumento %d de '%s': se esperaba %s ('%s') y se recibio %s",
                       i, e->nombre, nombre_tipo(p->tipo), p->nombre, nombre_tipo(a->tipo));
@@ -89,6 +185,9 @@ static TipoDato revisar_expr(Nodo *e) {
     case N_LIT_STR:   return e->tipo = T_STR;
     case N_LIT_BOOL:  return e->tipo = T_BOOL;
     case N_LLAMADA:   return revisar_llamada(e);
+    case N_ARREGLO:   return revisar_arreglo(e);
+    case N_INDICE:    return revisar_indice(e);
+    case N_METODO:    return revisar_metodo(e);
 
     case N_ID: {
         Simbolo *s = ts_buscar(e->nombre);
@@ -144,7 +243,8 @@ static TipoDato revisar_expr(Nodo *e) {
         }
         /* Igualdad: == != */
         else if (es_op(e, "==") || es_op(e, "!=")) {
-            if (i != T_VOID && (i == d || (es_numerico(i) && es_numerico(d)))) return e->tipo = T_BOOL;
+            if (i != T_VOID && !es_arreglo(i) && (i == d || (es_numerico(i) && es_numerico(d))))
+                return e->tipo = T_BOOL;
         }
         /* Logicos: && || */
         else if (es_op(e, "&&") || es_op(e, "||")) {
@@ -223,11 +323,14 @@ static void revisar_sentencia(Nodo *s) {
         if (!nuevo) return;
         s->sim = nuevo;
         if (s->a) {
+            ajustar_literal(s->a, s->tipo);
+            t = s->a->tipo;
             if (t != T_ERROR && !compatible(s->tipo, t))
                 error_sem(s->linea, "no se puede inicializar '%s' (%s) con un valor de tipo %s",
                           s->nombre, nombre_tipo(s->tipo), nombre_tipo(t));
             nuevo->inicializada = 1;
         }
+        if (es_arreglo(s->tipo)) nuevo->inicializada = 1;   /* var:int[] v;  empieza como [] */
         break;
     }
     case N_ASIGNACION: {
@@ -244,6 +347,8 @@ static void revisar_sentencia(Nodo *s) {
         }
         s->sim = sim;
         s->tipo = sim->tipo;
+        ajustar_literal(s->a, sim->tipo);
+        t = s->a->tipo;
         if (t != T_ERROR && !compatible(sim->tipo, t))
             error_sem(s->linea, "no se puede asignar un valor de tipo %s a '%s' que es de tipo %s",
                       nombre_tipo(t), s->nombre, nombre_tipo(sim->tipo));
@@ -252,13 +357,19 @@ static void revisar_sentencia(Nodo *s) {
     }
     case N_IMPRIMIR: {
         TipoDato t = revisar_expr(s->a);
-        if (t == T_VOID)
+        if (t == T_VOID && s->a->clase == N_METODO)
+            error_sem(s->linea, "no se puede imprimir '%s.%s(...)' porque no devuelve un valor",
+                      s->a->nombre, s->a->sval);
+        else if (t == T_VOID)
             error_sem(s->linea, "no se puede imprimir el resultado de '%s' porque es una funcion void",
                       s->a->nombre);
         break;
     }
     case N_LLAMADA:            /* llamada usada como sentencia: f(x); */
         revisar_llamada(s);
+        break;
+    case N_METODO:             /* lista.push(x);  lista.pop(); */
+        revisar_metodo(s);
         break;
     case N_RETORNO: {
         TipoDato t = s->a ? revisar_expr(s->a) : T_VOID;
@@ -268,6 +379,7 @@ static void revisar_sentencia(Nodo *s) {
         }
         TipoDato esperado = funcion_actual->tipo;
         s->tipo = esperado;
+        if (s->a) { ajustar_literal(s->a, esperado); t = s->a->tipo; }
         if (esperado == T_VOID && s->a)
             error_sem(s->linea, "la funcion '%s' es void y no puede devolver un valor",
                       funcion_actual->nombre);

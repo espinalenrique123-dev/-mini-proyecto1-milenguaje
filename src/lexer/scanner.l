@@ -88,6 +88,10 @@ LETRA    [a-zA-Z_]
 "{"                     { TOKEN('{', "LLAVE_ABRE"); }
 "}"                     { TOKEN('}', "LLAVE_CIERRA"); }
 ","                     { TOKEN(',', "COMA"); }
+ /* Arreglos (semana 9): corchetes y el punto de los metodos lista.push(x) */
+"["                     { TOKEN('[', "CORCH_ABRE"); }
+"]"                     { TOKEN(']', "CORCH_CIERRA"); }
+"."                     { TOKEN('.', "PUNTO"); }
 
  /* ---------- Cualquier otro caracter es un error lexico ---------- */
 .                       { printf("  [X] Error lexico (linea %d): caracter no reconocido '%s'\n", yylineno, yytext);
