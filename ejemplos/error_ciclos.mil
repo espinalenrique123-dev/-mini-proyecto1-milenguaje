@@ -1,0 +1,40 @@
+// error_ciclos.mil - Errores semanticos de lo nuevo del Proyecto Final
+var:int x = 5;
+var:float f = 2.5;
+var:int[] lista = [1, 2, 3];
+
+// 1. La condicion del while no es bool
+while x : {
+    x = x - 1;
+}
+
+// 2. El inicio del for debe ser int
+for i = f to 10 : {
+    print(i);
+}
+
+// 3. break fuera de un ciclo
+break;
+
+// 4. La variable del for no existe afuera del ciclo
+for k = 1 to 3 : {
+    print(k);
+}
+print(k);
+
+// 5. % solo funciona con int
+var:float r = f % 2;
+
+// 6. read en una variable que no existe
+read(edad);
+
+// 7. read directo en un arreglo
+read(lista);
+
+// 8. Guardar un texto en un arreglo de int
+lista[0] = "hola";
+
+// 9. El step del for no puede ser 0
+for j = 1 to 5 step 0 : {
+    print(j);
+}

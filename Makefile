@@ -6,6 +6,10 @@
 #       make funciones -> ejemplo de funciones (semana 7)
 #       make if        -> ejemplo de if / else (semana 8)
 #       make arreglos  -> ejemplo de arreglos (semana 9)
+#       make ciclos    -> ejemplo de while, for, break, % (Proyecto Final)
+#       make programas -> corre los 7 programas del Proyecto Final con datos de prueba
+#       make pruebas   -> pruebas automaticas (compara con la salida esperada)
+#       make demo      -> demostracion interactiva del Proyecto Final
 #       make errores   -> ejecuta los ejemplos con errores
 #       make clean     -> borra los archivos generados
 #
@@ -18,6 +22,9 @@
 #   src/runtime/    ejecucion (interprete) y arreglos
 #   build/          archivos generados al compilar
 #   ejemplos/       programas de prueba (.mil)
+#   programas/      los 7 programas del Proyecto Final (.mil),
+#                   sus datos de prueba (entradas/) y la salida
+#                   esperada (esperado/)
 # ============================================================
 CC        = gcc
 CFLAGS    = -Wall -g -Iinclude -Ibuild
@@ -70,6 +77,22 @@ if: $(PROG)
 arreglos: $(PROG)
 	./$(PROG) ejemplos/arreglos.mil
 
+ciclos: $(PROG)
+	./$(PROG) ejemplos/ciclos.mil
+
+programas: $(PROG)
+	@for f in programas/0*.mil; do \
+	    b=$$(basename $$f .mil); echo; echo "=========== $$b ==========="; \
+	    if [ -f programas/entradas/$$b.txt ]; then ./$(PROG) -r $$f < programas/entradas/$$b.txt; \
+	    else ./$(PROG) -r $$f; fi; \
+	done
+
+pruebas: $(PROG)
+	./pruebas.sh
+
+demo: $(PROG)
+	./demo_final.sh
+
 errores: $(PROG)
 	-./$(PROG) ejemplos/error_lexico.mil
 	-./$(PROG) ejemplos/error_sintactico.mil
@@ -79,8 +102,10 @@ errores: $(PROG)
 	-./$(PROG) ejemplos/error_if.mil
 	-./$(PROG) ejemplos/error_arreglos.mil
 	-./$(PROG) ejemplos/error_arreglos_ejecucion.mil
+	-./$(PROG) ejemplos/error_ciclos.mil
+	-./$(PROG) ejemplos/error_ciclos_ejecucion.mil
 
 clean:
 	rm -rf $(BUILD) $(PROG)
 
-.PHONY: run tokens funciones if arreglos errores clean
+.PHONY: run tokens funciones if arreglos ciclos programas pruebas demo errores clean

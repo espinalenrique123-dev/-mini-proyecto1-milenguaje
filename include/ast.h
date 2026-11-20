@@ -34,7 +34,13 @@ typedef enum {
     N_BLOQUE,       /* { sentencias }  (bloque del if/else) */
     N_ARREGLO,      /* [1, 2, 3]   literal de arreglo     */
     N_INDICE,       /* lista[i]    acceso a un elemento   */
-    N_METODO        /* lista.push(x) / .pop() / .length() */
+    N_METODO,       /* lista.push(x) / .pop() / .length() */
+    /* ---- Proyecto Final ---- */
+    N_MIENTRAS,     /* while cond : { ... }               */
+    N_PARA,         /* for i = ini to fin [step p] : { } */
+    N_ROMPER,       /* break;                             */
+    N_LEER,         /* read(x);  read("mensaje", x);      */
+    N_ASIG_INDICE   /* lista[i] = expr;                   */
 } ClaseNodo;
 
 typedef struct Nodo {
@@ -56,7 +62,17 @@ typedef struct Nodo {
                          /* INDICE: nombre = arreglo, a = indice    */
                          /* METODO: nombre = arreglo, sval = metodo,*/
                          /*         a = argumentos                  */
-    struct Nodo *c;      /* tercer hijo (solo el else del IF)       */
+                         /* IMPRIMIR: a = lista de expresiones      */
+                         /* MIENTRAS: a = condicion, b = bloque     */
+                         /* PARA: nombre = variable, a = inicio,    */
+                         /*       b = fin, d = paso (o NULL),       */
+                         /*       c = bloque                        */
+                         /* LEER: nombre = variable, a = mensaje    */
+                         /*       (o NULL)                          */
+                         /* ASIG_INDICE: nombre = arreglo,          */
+                         /*       a = indice, b = valor             */
+    struct Nodo *c;      /* tercer hijo (else del IF, bloque del FOR)*/
+    struct Nodo *d;      /* cuarto hijo (paso del FOR)              */
     struct Nodo *sig;    /* siguiente elemento (sentencias, params, */
                          /* argumentos)                             */
     void *sim;           /* simbolo resuelto por el semantico       */
@@ -84,6 +100,12 @@ Nodo *ast_bloque(const char *etiqueta, Nodo *sentencias, int linea);
 Nodo *ast_arreglo(Nodo *elementos, int linea);
 Nodo *ast_indice(char *nombre, Nodo *indice, int linea);
 Nodo *ast_metodo(char *nombre, char *metodo, Nodo *args, int linea);
+/* Proyecto Final: ciclos, break, lectura y asignacion a un elemento */
+Nodo *ast_mientras(Nodo *cond, Nodo *bloque, int linea);
+Nodo *ast_para(char *var, Nodo *inicio, Nodo *fin, Nodo *paso, Nodo *bloque, int linea);
+Nodo *ast_romper(int linea);
+Nodo *ast_leer(Nodo *mensaje, char *var, int linea);
+Nodo *ast_asig_indice(char *nombre, Nodo *indice, Nodo *valor, int linea);
 int  ast_contar_lista(Nodo *lista);
 
 /* Utilidades */

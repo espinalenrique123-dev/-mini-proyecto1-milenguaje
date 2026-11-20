@@ -1,0 +1,79 @@
+// ======================================================
+// ciclos.mil - Lo nuevo del Proyecto Final en MiLenguaje
+// while, for, break, %, lista[i] = valor, else if,
+// print con varios valores y texto + numero
+// Moises Moncada - Proyecto Final
+// ======================================================
+
+// 1. while: se repite mientras la condicion sea true
+var:int contador = 1;
+while contador <= 3 : {
+    print("vuelta del while: " + contador);
+    contador = contador + 1;
+}
+
+// 2. for: la variable va del inicio al fin (el fin se incluye)
+var:int suma = 0;
+for i = 1 to 5 : {
+    suma = suma + i;
+}
+print("suma del 1 al 5 = ", suma);
+
+// 3. for con step: de 10 a 0 bajando de 5 en 5
+for i = 10 to 0 step -5 : {
+    print("cuenta regresiva: ", i);
+}
+
+// 4. % (residuo) para saber si un numero es par
+for n = 1 to 4 : {
+    if n % 2 is 0 : {
+        print(n, " es par");
+    } else {
+        print(n, " es impar");
+    }
+}
+
+// 5. break: sale del ciclo antes de terminar
+var:int[] datos = [3, 8, 15, 4, 23];
+var:int encontrado = -1;
+for i = 0 to datos.length() - 1 : {
+    if datos[i] greater 10 : {
+        encontrado = datos[i];
+        break;
+    }
+}
+print("primer numero mayor que 10: ", encontrado);
+
+// 6. lista[i] = valor: cambia un elemento del arreglo
+datos[0] = 100;
+print("datos con el primero cambiado: ", datos);
+
+// 7. else if
+var:int nota = 75;
+if nota >= 90 : {
+    print("excelente");
+} else if nota >= 70 : {
+    print("bien");
+} else {
+    print("debe mejorar");
+}
+
+// 8. Ciclos dentro de funciones (con return dentro del ciclo)
+func es_primo(n:int):bool {
+    if n < 2 : { return false; }
+    for d = 2 to n - 1 : {
+        if n % d is 0 : { return false; }
+    }
+    return true;
+}
+var:str primos = "";
+for n = 1 to 20 : {
+    if es_primo(n) : {
+        primos = primos + n + " ";
+    }
+}
+print("primos hasta 20: ", primos);
+
+// 9. formato(numero, decimales) para mostrar dinero
+var:float precio = 1.5;
+print("precio: $", formato(precio, 2));

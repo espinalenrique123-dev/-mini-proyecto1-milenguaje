@@ -1,0 +1,7 @@
+===== CAJERO AUTOMATICO =====
+Ingrese su PIN de 4 digitos: 1111
+  PIN incorrecto. Le quedan 2 intento(s).
+Ingrese su PIN de 4 digitos: 2222
+  PIN incorrecto. Le quedan 1 intento(s).
+Ingrese su PIN de 4 digitos: 3333
+  PIN incorrecto 3 veces. Cuenta BLOQUEADA. Comuniquese con su banco.

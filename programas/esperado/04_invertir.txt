@@ -1,0 +1,11 @@
+=== INVERTIR EL ORDEN DE UN ARREGLO ===
+Dato 1 de 6: uno
+Dato 2 de 6: dos
+Dato 3 de 6: tres
+Dato 4 de 6: cuatro
+Dato 5 de 6: cinco
+Dato 6 de 6: seis
+
+Arreglo original:  ["uno", "dos", "tres", "cuatro", "cinco", "seis"]
+Arreglo invertido: ["seis", "cinco", "cuatro", "tres", "dos", "uno"]
+Mismo arreglo invertido (intercambiando): ["seis", "cinco", "cuatro", "tres", "dos", "uno"]

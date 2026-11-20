@@ -34,6 +34,7 @@ Nodo *raiz = NULL;
 
 /* Los textos entre comillas aparecen en los mensajes de error */
 %token VAR "var" PRINT "print" FUNC "func" RETURN "return" IF "if" ELSE "else"
+%token WHILE "while" FOR "for" TO "to" STEP "step" BREAK "break" READ "read"
 %token <tipo> VOID "void"
 %token <tipo> TIPO "tipo de dato"
 %token <sval> ID "identificador" STR_LIT "cadena"
@@ -44,6 +45,7 @@ Nodo *raiz = NULL;
 %type <nodo> lista_sentencias sentencia declaracion asignacion impresion expr
 %type <nodo> funcion parametros_opt parametros parametro cuerpo retorno llamada argumentos_opt argumentos
 %type <nodo> si bloque sino_opt metodo
+%type <nodo> mientras para paso_opt romper lectura asig_indice
 %type <tipo> tipo tipo_retorno
 
 /* Precedencia: de menor (arriba) a mayor (abajo) */
@@ -52,7 +54,7 @@ Nodo *raiz = NULL;
 %left EQ NE
 %left '<' '>' LE GE
 %left '+' '-'
-%left '*' '/'
+%left '*' '/' '%'
 %right '!' UMINUS
 
 %start programa
@@ -75,6 +77,11 @@ sentencia
     | funcion
     | retorno
     | si
+    | mientras
+    | para
+    | romper
+    | lectura
+    | asig_indice
     | llamada ';'                       { $$ = $1; }
     | metodo ';'                        { $$ = $1; }
     | error ';'                         { yyerrok; $$ = NULL; }   /* recuperacion */
@@ -98,9 +105,10 @@ asignacion
     : ID '=' expr ';'                   { $$ = ast_asignacion($1, $3, @1.first_line); }
     ;
 
-/* print ( <expresion> ) ; */
+/* print ( <expresion> ) ;
+   print ( <expresion> , <expresion> , ... ) ;   -- Proyecto Final: varios valores seguidos */
 impresion
-    : PRINT '(' expr ')' ';'            { $$ = ast_imprimir($3, @1.first_line); }
+    : PRINT '(' argumentos ')' ';'      { $$ = ast_imprimir($3, @1.first_line); }
     ;
 
 /* ---------------- FUNCIONES ----------------
@@ -161,10 +169,49 @@ dos_puntos_opt
 sino_opt
     : %empty                            { $$ = NULL; }
     | ELSE bloque                       { $2->nombre = strdup("else"); $$ = $2; }
+    | ELSE si                           { $$ = ast_bloque("else", $2, @1.first_line); }  /* else if */
     ;
 
 bloque
     : '{' cuerpo '}'                    { $$ = ast_bloque("", $2, @1.first_line); }
+    ;
+
+/* ---------------- CICLOS (Proyecto Final) ----------------
+   while <condicion> : { <sentencias> }
+   for <variable> = <inicio> to <fin> : { <sentencias> }
+   for <variable> = <inicio> to <fin> step <paso> : { <sentencias> }
+   Igual que en el if, los dos puntos ':' son opcionales. */
+mientras
+    : WHILE expr dos_puntos_opt bloque  { $4->nombre = strdup("while");
+                                          $$ = ast_mientras($2, $4, @1.first_line); }
+    ;
+
+para
+    : FOR ID '=' expr TO expr paso_opt dos_puntos_opt bloque
+                                        { $9->nombre = strdup("for");
+                                          $$ = ast_para($2, $4, $6, $7, $9, @1.first_line); }
+    ;
+
+paso_opt
+    : %empty                            { $$ = NULL; }
+    | STEP expr                         { $$ = $2; }
+    ;
+
+/* break ;   sale del ciclo mas cercano */
+romper
+    : BREAK ';'                         { $$ = ast_romper(@1.first_line); }
+    ;
+
+/* read ( <variable> ) ;     read ( <mensaje> , <variable> ) ;
+   Lee un dato escrito por el usuario y lo guarda en la variable */
+lectura
+    : READ '(' ID ')' ';'               { $$ = ast_leer(NULL, $3, @1.first_line); }
+    | READ '(' expr ',' ID ')' ';'      { $$ = ast_leer($3, $5, @1.first_line); }
+    ;
+
+/* <arreglo> [ <indice> ] = <expresion> ;   cambia un elemento */
+asig_indice
+    : ID '[' expr ']' '=' expr ';'      { $$ = ast_asig_indice($1, $3, $6, @1.first_line); }
     ;
 
 /* ---------------- ARREGLOS (semana 9) ----------------
@@ -193,6 +240,7 @@ expr
     | expr '-' expr                     { $$ = ast_binaria("-",  $1, $3, @2.first_line); }
     | expr '*' expr                     { $$ = ast_binaria("*",  $1, $3, @2.first_line); }
     | expr '/' expr                     { $$ = ast_binaria("/",  $1, $3, @2.first_line); }
+    | expr '%' expr                     { $$ = ast_binaria("%",  $1, $3, @2.first_line); }
     | expr '<' expr                     { $$ = ast_binaria("<",  $1, $3, @2.first_line); }
     | expr '>' expr                     { $$ = ast_binaria(">",  $1, $3, @2.first_line); }
     | expr LE  expr                     { $$ = ast_binaria("<=", $1, $3, @2.first_line); }

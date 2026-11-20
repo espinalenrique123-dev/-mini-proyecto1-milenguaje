@@ -1,0 +1,13 @@
+=== CALCULADORA DE CALIFICACIONES ===
+Nota del estudiante 1: 85
+Nota del estudiante 2: 45.5
+Nota del estudiante 3: 150
+  La nota debe estar entre 0 y 100.
+Nota del estudiante 3: 72
+Nota del estudiante 4: 59
+Nota del estudiante 5: 100
+
+Notas ingresadas: [85.0, 45.5, 72.0, 59.0, 100.0]
+Promedio general: 72.3
+Aprobados (>= 60): 3
+Reprobados (< 60): 2

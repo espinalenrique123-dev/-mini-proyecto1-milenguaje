@@ -15,6 +15,8 @@
 #include "lexer.h"
 
 int mostrar_tokens = 0;
+extern int silenciar_advertencias;   /* semantico.c */
+extern const char *prefijo_salida;   /* ejecutor.c  */
 
 static void titulo(const char *t) {
     printf("\n==================================================================\n");
@@ -22,18 +24,44 @@ static void titulo(const char *t) {
     printf("==================================================================\n");
 }
 
+/* Modo -r (Proyecto Final): compila igual (las 4 fases), pero solo muestra
+   los errores y la salida del programa, como un programa normal. */
+static int modo_ejecutar(void) {
+    silenciar_advertencias = 1;
+    prefijo_salida = "";
+    yyparse();
+    if (errores_lexicos || errores_sintacticos) {
+        printf("\n  Compilacion detenida: %d error(es) lexico(s), %d error(es) sintactico(s).\n",
+               errores_lexicos, errores_sintacticos);
+        return 1;
+    }
+    if (analizar_semantica(raiz, NULL)) {
+        printf("\n  Compilacion detenida: corrija los errores semanticos.\n");
+        return 1;
+    }
+    int fallo = ejecutar(raiz);
+    arreglos_liberar();
+    return fallo;
+}
+
 int main(int argc, char **argv) {
     const char *archivo = NULL;
+    int solo_ejecutar = 0;
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-t") == 0) mostrar_tokens = 1;
+        else if (strcmp(argv[i], "-r") == 0) solo_ejecutar = 1;
         else archivo = argv[i];
     }
     if (!archivo) {
-        printf("Uso: %s [-t] archivo.mil\n   -t  muestra la tabla de tokens\n", argv[0]);
+        printf("Uso: %s [-t | -r] archivo.mil\n"
+               "   -t  muestra tambien la tabla de tokens\n"
+               "   -r  solo ejecuta: muestra la salida del programa (y los errores, si hay)\n", argv[0]);
         return 1;
     }
     yyin = fopen(archivo, "r");
     if (!yyin) { printf("No se pudo abrir el archivo '%s'\n", archivo); return 1; }
+
+    if (solo_ejecutar) { mostrar_tokens = 0; return modo_ejecutar(); }
 
     printf("\n  COMPILADOR DE MiLenguaje  -  archivo: %s\n", archivo);
 

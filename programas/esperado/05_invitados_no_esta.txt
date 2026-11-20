@@ -1,0 +1,3 @@
+=== BUSCADOR DE INVITADOS ===
+Escriba su nombre: Roberto
+No se encuentra en la lista.

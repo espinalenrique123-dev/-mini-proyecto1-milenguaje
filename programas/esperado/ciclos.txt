@@ -1,0 +1,16 @@
+vuelta del while: 1
+vuelta del while: 2
+vuelta del while: 3
+suma del 1 al 5 = 15
+cuenta regresiva: 10
+cuenta regresiva: 5
+cuenta regresiva: 0
+1 es impar
+2 es par
+3 es impar
+4 es par
+primer numero mayor que 10: 15
+datos con el primero cambiado: [100, 8, 15, 4, 23]
+bien
+primos hasta 20: 2 3 5 7 11 13 17 19 
+precio: $1.50

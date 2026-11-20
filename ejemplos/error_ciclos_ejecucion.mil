@@ -1,0 +1,8 @@
+// error_ciclos_ejecucion.mil - Error de ejecucion en un ciclo
+// La sintaxis y los tipos estan bien, pero al correr el for
+// se pasa del tamano del arreglo (los indices van de 0 a 2).
+var:int[] numeros = [10, 20, 30];
+for i = 0 to 3 : {
+    numeros[i] = numeros[i] * 2;
+    print("numeros[", i, "] = ", numeros[i]);
+}

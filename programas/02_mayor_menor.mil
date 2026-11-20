@@ -1,0 +1,34 @@
+// ======================================================
+// 02_mayor_menor.mil - Buscador de Numero Mayor y Menor
+// Con un ciclo for busca el numero mas grande y el mas
+// pequeno de un arreglo de 10 numeros, y en que posicion
+// (indice) esta cada uno. No usa funciones como max() o min().
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:int[] numeros = [34, 12, 89, 5, 67, 23, 91, 4, 50, 18];
+
+print("=== BUSCADOR DE NUMERO MAYOR Y MENOR ===");
+print("Arreglo: ", numeros);
+
+// Se empieza suponiendo que el primero es el mayor y el menor
+var:int mayor = numeros[0];
+var:int menor = numeros[0];
+var:int pos_mayor = 0;
+var:int pos_menor = 0;
+
+// Se compara cada numero con el mayor y el menor encontrados
+for i = 1 to numeros.length() - 1 : {
+    if numeros[i] greater mayor : {
+        mayor = numeros[i];
+        pos_mayor = i;
+    }
+    if numeros[i] less menor : {
+        menor = numeros[i];
+        pos_menor = i;
+    }
+}
+
+print("");
+print("Numero mayor: ", mayor, " (indice ", pos_mayor, ")");
+print("Numero menor: ", menor, " (indice ", pos_menor, ")");

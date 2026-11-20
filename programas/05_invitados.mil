@@ -1,0 +1,29 @@
+// ======================================================
+// 05_invitados.mil - Buscador de Invitados (Busqueda Lineal)
+// Tiene una lista de 7 invitados. Pide un nombre y con un
+// ciclo for lo busca uno por uno. Si esta, da acceso y su
+// numero de asiento (indice + 1).
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:str[] invitados = ["Ana", "Carlos", "Maria", "Jose", "Lucia", "Pedro", "Sofia"];
+var:str nombre = "";
+
+print("=== BUSCADOR DE INVITADOS ===");
+read("Escriba su nombre: ", nombre);
+
+// Busqueda lineal: se revisa cada posicion hasta encontrarlo
+var:int posicion = -1;
+for i = 0 to invitados.length() - 1 : {
+    if invitados[i] is nombre : {
+        posicion = i;
+        break;            // ya se encontro, no hace falta seguir buscando
+    }
+}
+
+if posicion greater -1 : {
+    print("Acceso permitido. Bienvenido(a), ", nombre, ".");
+    print("Su numero de asiento es: ", posicion + 1);
+} else {
+    print("No se encuentra en la lista.");
+}

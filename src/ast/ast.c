@@ -76,6 +76,27 @@ Nodo *ast_indice(char *nombre, Nodo *indice, int linea) {
 Nodo *ast_metodo(char *nombre, char *metodo, Nodo *args, int linea) {
     Nodo *n = nuevo(N_METODO, linea); n->nombre = nombre; n->sval = metodo; n->a = args; return n;
 }
+/* ---------- Proyecto Final ---------- */
+/* while <cond> : { ... } */
+Nodo *ast_mientras(Nodo *cond, Nodo *bloque, int linea) {
+    Nodo *n = nuevo(N_MIENTRAS, linea); n->a = cond; n->b = bloque; return n;
+}
+/* for <var> = <inicio> to <fin> [step <paso>] : { ... } */
+Nodo *ast_para(char *var, Nodo *inicio, Nodo *fin, Nodo *paso, Nodo *bloque, int linea) {
+    Nodo *n = nuevo(N_PARA, linea);
+    n->nombre = var; n->a = inicio; n->b = fin; n->d = paso; n->c = bloque; return n;
+}
+/* break; */
+Nodo *ast_romper(int linea) { return nuevo(N_ROMPER, linea); }
+/* read(x);   read("mensaje", x); */
+Nodo *ast_leer(Nodo *mensaje, char *var, int linea) {
+    Nodo *n = nuevo(N_LEER, linea); n->nombre = var; n->a = mensaje; return n;
+}
+/* lista[i] = valor; */
+Nodo *ast_asig_indice(char *nombre, Nodo *indice, Nodo *valor, int linea) {
+    Nodo *n = nuevo(N_ASIG_INDICE, linea); n->nombre = nombre; n->a = indice; n->b = valor; return n;
+}
+
 int ast_contar_lista(Nodo *l) { int c = 0; for (; l; l = l->sig) c++; return c; }
 
 const char *nombre_tipo(TipoDato t) {
@@ -112,7 +133,8 @@ const char *nombre_clase(ClaseNodo c) {
     static const char *n[] = { "PROGRAMA", "DECLARACION", "ASIGNACION", "IMPRIMIR",
         "LIT_INT", "LIT_FLOAT", "LIT_STR", "LIT_BOOL", "IDENTIFICADOR",
         "OP_BINARIA", "OP_UNARIA", "FUNCION", "PARAMETRO", "RETORNO", "LLAMADA",
-        "IF", "BLOQUE", "ARREGLO", "INDICE", "METODO" };
+        "IF", "BLOQUE", "ARREGLO", "INDICE", "METODO",
+        "WHILE", "FOR", "BREAK", "READ", "ASIG_INDICE" };
     return n[c];
 }
 
@@ -128,7 +150,9 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
         case N_PROGRAMA:    snprintf(buf, tam, "%d sentencias", ast_contar_sentencias(n)); break;
         case N_DECLARACION: snprintf(buf, tam, "var:%s %s", nombre_tipo(n->tipo), n->nombre); break;
         case N_ASIGNACION:  snprintf(buf, tam, "%s =", n->nombre); break;
-        case N_IMPRIMIR:    snprintf(buf, tam, "print"); break;
+        case N_IMPRIMIR:    if (ast_contar_lista(n->a) == 1) snprintf(buf, tam, "print");
+                            else snprintf(buf, tam, "print(%d valores)", ast_contar_lista(n->a));
+                            break;
         case N_LIT_INT:     snprintf(buf, tam, "%lld", n->ival); break;
         case N_LIT_FLOAT:   if (n->fval == (long long)n->fval) snprintf(buf, tam, "%.1f", n->fval);
                             else snprintf(buf, tam, "%g", n->fval);
@@ -153,6 +177,11 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
         case N_ARREGLO:     snprintf(buf, tam, "[ %d elemento(s) ]", ast_contar_lista(n->a)); break;
         case N_INDICE:      snprintf(buf, tam, "%s[ ]", n->nombre); break;
         case N_METODO:      snprintf(buf, tam, "%s.%s(%d arg)", n->nombre, n->sval, ast_contar_lista(n->a)); break;
+        case N_MIENTRAS:    snprintf(buf, tam, "while (condicion)"); break;
+        case N_PARA:        snprintf(buf, tam, "for %s = inicio to fin%s", n->nombre, n->d ? " step" : ""); break;
+        case N_ROMPER:      snprintf(buf, tam, "break"); break;
+        case N_LEER:        snprintf(buf, tam, "read -> %s%s", n->nombre, n->a ? " (con mensaje)" : ""); break;
+        case N_ASIG_INDICE: snprintf(buf, tam, "%s[ ] =", n->nombre); break;
         default:            snprintf(buf, tam, "%s", n->nombre); break;
     }
 }
@@ -161,10 +190,16 @@ static void detalle(Nodo *n, char *buf, size_t tam) {
 static int hijos(Nodo *n, Nodo **h) {
     int k = 0;
     if (n->clase == N_PROGRAMA || n->clase == N_LLAMADA || n->clase == N_BLOQUE ||
-        n->clase == N_ARREGLO || n->clase == N_METODO) {
+        n->clase == N_ARREGLO || n->clase == N_METODO || n->clase == N_IMPRIMIR) {
         /* programa y bloque: sus sentencias; llamada y metodo: sus argumentos;
-           arreglo: sus elementos */
+           arreglo: sus elementos; print: sus expresiones */
         for (Nodo *s = n->a; s && k < 512; s = s->sig) h[k++] = s;
+    } else if (n->clase == N_PARA) {
+        /* for: inicio, fin, paso (si hay) y el bloque */
+        if (n->a) h[k++] = n->a;
+        if (n->b) h[k++] = n->b;
+        if (n->d) h[k++] = n->d;
+        if (n->c) h[k++] = n->c;
     } else if (n->clase == N_FUNCION) {
         /* funcion: primero los parametros y luego el cuerpo */
         for (Nodo *s = n->a; s && k < 512; s = s->sig) h[k++] = s;

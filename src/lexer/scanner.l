@@ -40,6 +40,13 @@ LETRA    [a-zA-Z_]
 "return"                { TOKEN(RETURN, "RETURN"); }
 "if"                    { TOKEN(IF, "IF"); }
 "else"                  { TOKEN(ELSE, "ELSE"); }
+ /* Proyecto Final: ciclos, break y lectura de datos */
+"while"                 { TOKEN(WHILE, "WHILE"); }
+"for"                   { TOKEN(FOR, "FOR"); }
+"to"                    { TOKEN(TO, "TO"); }
+"step"                  { TOKEN(STEP, "STEP"); }
+"break"                 { TOKEN(BREAK, "BREAK"); }
+"read"                  { TOKEN(READ, "READ"); }
  /* Comparaciones y logicos escritos con palabras (como el ejemplo del profe) */
 "is"[ \t]+"not"          { TOKEN(NE, "DIFERENTE"); }
 "is"                    { TOKEN(EQ, "IGUAL"); }
@@ -80,6 +87,7 @@ LETRA    [a-zA-Z_]
 "-"                     { TOKEN('-', "RESTA"); }
 "*"                     { TOKEN('*', "MULTIPLICACION"); }
 "/"                     { TOKEN('/', "DIVISION"); }
+"%"                     { TOKEN('%', "MODULO"); }
 "<"                     { TOKEN('<', "MENOR"); }
 ">"                     { TOKEN('>', "MAYOR"); }
 "!"                     { TOKEN('!', "NOT"); }

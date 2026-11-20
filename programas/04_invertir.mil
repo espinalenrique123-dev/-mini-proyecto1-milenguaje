@@ -1,0 +1,37 @@
+// ======================================================
+// 04_invertir.mil - Invertir el Orden de un Arreglo
+// Pide 6 palabras y las guarda en un arreglo. Con un ciclo
+// for crea un segundo arreglo al reves y tambien invierte
+// el original cambiando los elementos de lugar (lista[i] = x).
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:str[] original = [];
+var:str palabra = "";
+
+print("=== INVERTIR EL ORDEN DE UN ARREGLO ===");
+
+// 1. Pedir las 6 palabras (o numeros)
+for i = 1 to 6 : {
+    read("Dato " + i + " de 6: ", palabra);
+    original.push(palabra);
+}
+
+// 2. Forma 1: crear un segundo arreglo recorriendo del ultimo al primero
+var:str[] invertido = [];
+for i = original.length() - 1 to 0 step -1 : {
+    invertido.push(original[i]);
+}
+
+print("");
+print("Arreglo original:  ", original);
+print("Arreglo invertido: ", invertido);
+
+// 3. Forma 2: invertir el mismo arreglo intercambiando los extremos
+var:int ultimo = original.length() - 1;
+for i = 0 to original.length() / 2 - 1 : {
+    var:str temporal = original[i];
+    original[i] = original[ultimo - i];
+    original[ultimo - i] = temporal;
+}
+print("Mismo arreglo invertido (intercambiando): ", original);

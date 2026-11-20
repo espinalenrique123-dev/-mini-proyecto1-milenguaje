@@ -1,8 +1,8 @@
-# MiLenguaje — Mini Proyecto 1
+# MiLenguaje — Proyecto Final
 
 **Autor:** Moisés Moncada · **Curso:** IS-505 Análisis Léxico y Sintáctico · **Profesor:** Wilian Martínez · UNADECA
 
-Compilador (con intérprete) para **MiLenguaje**, construido con **Flex + Bison + C**, siguiendo las reglas definidas en el trabajo *W5 – Mi Lenguaje de Programación*.
+Compilador (con intérprete) para **MiLenguaje**, construido con **Flex + Bison + C**, siguiendo las reglas definidas en el trabajo *W5 – Mi Lenguaje de Programación*. Empezó como el Mini Proyecto 1 y cada semana se le agregó algo (funciones, `if`, arreglos). Para el **Proyecto Final** se le agregaron ciclos, lectura de datos y lo necesario para correr los **7 programas** que pide el profesor (ver [Proyecto Final](#proyecto-final)).
 
 ## Cómo compilar y ejecutar
 
@@ -15,7 +15,14 @@ make tokens    # ejemplo + tabla de tokens
 make funciones # ejecuta el ejemplo de funciones (semana 7)
 make if        # ejecuta el ejemplo de if / else (semana 8)
 make arreglos  # ejecuta el ejemplo de arreglos (semana 9)
+make ciclos    # ejecuta el ejemplo de while, for, break y % (Proyecto Final)
 make errores   # ejecuta los ejemplos con errores
+
+# Proyecto Final
+./milenguaje -r programas/07_atm.mil   # -r: solo ejecuta (como un programa normal, sin las tablas)
+make programas                         # corre los 7 programas con datos de prueba
+make pruebas                           # pruebas automaticas: compara con la salida esperada
+./demo_final.sh                        # demostracion para la defensa (menu)
 ./demo.sh      # demostracion completa paso a paso
 make clean     # borra los archivos generados
 ```
@@ -27,6 +34,8 @@ make clean     # borra los archivos generados
 ├── Makefile
 ├── README.md
 ├── demo.sh / colores.sh      demostración y salida con colores
+├── demo_final.sh             demostración del Proyecto Final (menú)
+├── pruebas.sh                pruebas automáticas de los 7 programas
 ├── include/                  cabeceras (.h)
 │   ├── ast.h  symtab.h  semantico.h  ejecutor.h  arreglos.h
 │   └── parser.h  lexer.h
@@ -41,6 +50,10 @@ make clean     # borra los archivos generados
 │       ├── ejecutor.c
 │       └── arreglos.c
 ├── ejemplos/                 programas de prueba (.mil)
+├── programas/                los 7 programas del Proyecto Final
+│   ├── 01_calificaciones.mil ... 07_atm.mil
+│   ├── entradas/             datos que escribiría el usuario (para las pruebas)
+│   └── esperado/             salida esperada de cada prueba
 └── build/                    archivos generados al compilar (no se suben a GitHub)
 ```
 
@@ -65,13 +78,13 @@ Si una fase encuentra errores, la compilación se detiene ahí.
 
 | Token | Patrón | Ejemplo |
 |---|---|---|
-| Palabras reservadas | `var print func return void if else int float str bool true false` | `if` |
+| Palabras reservadas | `var print func return void if else int float str bool true false while for to step break read` | `if` |
 | Comparaciones en palabras | `is` (==), `is not` (!=), `greater` (>), `less` (<), `or` (\|\|) | `x is 10` |
 | ID (identificador) | letra o `_`, seguido de letras, dígitos o `_` | `edad`, `_total2` |
 | INT_LIT | uno o más dígitos | `25` |
 | FLOAT_LIT | dígitos `.` dígitos | `3.75` |
 | STR_LIT | texto entre comillas dobles | `"Moises"` |
-| Operadores | `+ - * /` `< > <= >= == !=` `&& \|\| !` `=` | |
+| Operadores | `+ - * / %` `< > <= >= == !=` `&& \|\| !` `=` | |
 | Signos | `: ; ( ) { } , [ ] .` | |
 | Comentarios | `//` hasta el final de la línea (se ignoran) | |
 
@@ -201,6 +214,78 @@ En el AST hay tres nodos nuevos: **ARREGLO** (sus hijos son los elementos), **IN
 8. **División entre cero** con literal → error semántico; con variable → error de ejecución.
 9. Advertencias (no detienen): usar una variable sin inicializar, declarar una variable y nunca usarla.
 
+## Proyecto Final
+
+> *"Si su compilador es un lenguaje de programación deberá crear los programas descritos en el documento adjunto"* — por eso MiLenguaje necesitó ciclos y leer datos del teclado.
+
+### Lo que se agregó al lenguaje
+
+| Nuevo | Sintaxis | Para qué se usa en los programas |
+|---|---|---|
+| Ciclo **while** | `while <condicion> : { ... }` | Menú del ATM y del punto de venta, intentos del PIN |
+| Ciclo **for** | `for i = <inicio> to <fin> : { ... }` | Recorrer los arreglos (el `fin` se incluye) |
+| **for** con paso | `for i = 5 to 0 step -1 : { ... }` | Recorrer un arreglo al revés |
+| **break** | `break;` | Salir del ciclo (invitado encontrado, opción "Salir") |
+| **read** | `read(x);`  `read("mensaje: ", x);` | Pedir datos al usuario (int, float, str o bool) |
+| **%** (residuo) | `n % 2` | Saber si un número es par |
+| Cambiar un elemento | `lista[i] = valor;` | Invertir un arreglo intercambiando elementos |
+| **else if** | `if ... { } else if ... { } else { }` | Menús con varias opciones |
+| **print** con varios valores | `print("Total: ", total);` | Mostrar texto y números juntos |
+| Texto **+** número | `"Nota " + 5` → `"Nota 5"` | Armar mensajes como `"Estudiante " + i` |
+| **formato** | `formato(1.5, 2)` → `"1.50"` | Mostrar dinero con 2 decimales |
+| Modo **-r** | `./milenguaje -r archivo.mil` | Correr el programa sin las tablas de las fases |
+
+Gramática nueva:
+
+```
+mientras   → while expr [:] bloque
+para       → for ID = expr to expr [step expr] [:] bloque
+romper     → break ;
+lectura    → read ( ID ) ;  |  read ( expr , ID ) ;
+asig_indice→ ID [ expr ] = expr ;
+impresion  → print ( expr ( , expr )* ) ;
+sino       → else bloque  |  else si
+expr       → ... | expr % expr
+```
+
+### Reglas semánticas de lo nuevo
+
+1. La **condición del `while`** debe ser `bool` (igual que en el `if`).
+2. El **inicio, el fin y el paso del `for`** deben ser `int`, y el paso no puede ser `0`.
+3. La **variable del `for`** es `int`, se declara sola y **solo existe dentro del ciclo** (en la Tabla de Símbolos su ámbito aparece como `for:<línea>`).
+4. **`break`** solo se puede usar dentro de un `while` o un `for`; sale del ciclo más cercano.
+5. **`read`** guarda en una variable ya declarada que no sea arreglo. Si el usuario escribe algo que no es del tipo de la variable (por ejemplo `abc` en un `int`), se le vuelve a pedir.
+6. **`%`** solo funciona con `int`; residuo entre `0` literal es error semántico.
+7. En **`lista[i] = valor`** el índice es `int` y el valor debe ser del tipo de los elementos.
+8. **`+`** con un `str` y un `int`, `float` o `bool` concatena y da `str`.
+9. **`formato(numero, decimales)`** recibe un `int` o `float` y un `int`, y devuelve `str`.
+
+Errores de ejecución nuevos: índice fuera del arreglo en `lista[i] = valor`, residuo entre cero, un ciclo que da más de 1 000 000 de vueltas (ciclo infinito) y quedarse sin datos para `read`.
+
+En el AST hay 5 nodos nuevos: **WHILE** (condición y bloque), **FOR** (inicio, fin, paso y bloque), **BREAK**, **READ** y **ASIG_INDICE** (índice y valor).
+
+### Los 7 programas
+
+| # | Archivo | Programa | Usa |
+|---|---|---|---|
+| 1 | `programas/01_calificaciones.mil` | Calculadora de calificaciones: pide 5 notas, promedio, aprobados (≥ 60) y reprobados | `read`, `for`, `while` (valida 0–100), arreglo |
+| 2 | `programas/02_mayor_menor.mil` | Mayor y menor de 10 números y su índice, sin `max()`/`min()` | `for`, arreglo |
+| 3 | `programas/03_pares_impares.mil` | Pide 8 números: cuántos pares, cuántos impares y suma de los pares | `read`, `for`, `%` |
+| 4 | `programas/04_invertir.mil` | Pide 6 datos y los invierte (en un arreglo nuevo y en el mismo) | `read`, `for ... step -1`, `lista[i] = x` |
+| 5 | `programas/05_invitados.mil` | Búsqueda lineal de un invitado: "Acceso permitido" y asiento, o "No se encuentra en la lista" | `read`, `for`, `break` |
+| 6 | `programas/06_punto_venta.mil` | Punto de venta con arreglos paralelos: catálogo, elegir productos y total | función, `while`, `else if`, `formato` |
+| 7 | `programas/07_atm.mil` | Cajero automático: PIN con 3 intentos, menú, depósitos y retiros validados | `while`, `break`, funciones, `else if`, `formato` |
+
+Cada programa se puede correr de tres formas:
+
+```bash
+./milenguaje -r programas/07_atm.mil                                   # en vivo: el usuario escribe los datos
+./milenguaje -r programas/07_atm.mil < programas/entradas/07_atm.txt   # con los datos de prueba
+./milenguaje programas/07_atm.mil < programas/entradas/07_atm.txt      # con las 4 fases y sus tablas
+```
+
+`./pruebas.sh` (o `make pruebas`) corre los programas con sus datos de `programas/entradas/` y compara la salida con `programas/esperado/`. Incluye casos como una nota fuera de rango, una letra donde va un número, un invitado que no está y la cuenta bloqueada del ATM.
+
 ## Ejemplos incluidos
 
 | Archivo | Demuestra |
@@ -217,6 +302,9 @@ En el AST hay tres nodos nuevos: **ARREGLO** (sus hijos son los elementos), **IN
 | `ejemplos/error_sintactico.mil` | Falta `;`, falta `:`, falta expresión, falta `)` |
 | `ejemplos/error_semantico.mil` | Redeclaración, variable no declarada, tipos incompatibles, división entre cero |
 | `ejemplos/error_ejecucion.mil` | División entre cero detectada al ejecutar |
+| `ejemplos/ciclos.mil` | Lo nuevo del Proyecto Final: `while`, `for`, `step`, `%`, `break`, `lista[i] = x`, `else if`, ciclos dentro de funciones, `formato` |
+| `ejemplos/error_ciclos.mil` | Errores de lo nuevo: condición del `while`, `for` con `float`, `break` fuera de un ciclo, variable del `for` afuera, `%` con `float`, `read` mal usado, `step 0` |
+| `ejemplos/error_ciclos_ejecucion.mil` | Un `for` que se pasa del tamaño del arreglo |
 
 ## Extensión respecto al W5
 

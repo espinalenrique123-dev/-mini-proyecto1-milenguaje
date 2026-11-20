@@ -1,0 +1,65 @@
+===== CAJERO AUTOMATICO =====
+Ingrese su PIN de 4 digitos: 1111
+  PIN incorrecto. Le quedan 2 intento(s).
+Ingrese su PIN de 4 digitos: 1234
+Bienvenido.
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 1
+  Su saldo actual es: $1000.00
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 2
+  Monto a depositar: $-50
+  [!] No se permiten depositos de 0 o negativos.
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 2
+  Monto a depositar: $250.75
+  Deposito exitoso. Nuevo saldo: $1250.75
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 3
+  Monto a retirar: $5000
+  [!] Fondos insuficientes. Su saldo es $1250.75
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 3
+  Monto a retirar: $200
+  Retiro exitoso. Nuevo saldo: $1050.75
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 7
+  [!] Opcion invalida, elija del 1 al 4.
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 1
+  Su saldo actual es: $1050.75
+
+1. Consultar saldo
+2. Depositar dinero
+3. Retirar dinero
+4. Salir
+Elija una opcion: 4
+Gracias por usar el cajero. Hasta luego.

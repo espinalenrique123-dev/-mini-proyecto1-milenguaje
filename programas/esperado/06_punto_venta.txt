@@ -1,0 +1,26 @@
+=== MINI PUNTO DE VENTA ===
+---------- CATALOGO ----------
+  1. Pan  $1.50
+  2. Leche  $2.00
+  3. Huevos  $3.75
+  4. Cafe  $4.50
+  5. Azucar  $1.80
+  0. Terminar la compra
+------------------------------
+Elija un producto (0 para terminar): abc
+  [!] 'abc' no es un numero entero. Intente de nuevo.
+Elija un producto (0 para terminar): 1
+  Agregado: Pan ($1.50)  |  Subtotal: $1.50
+Elija un producto (0 para terminar): 3
+  Agregado: Huevos ($3.75)  |  Subtotal: $5.25
+Elija un producto (0 para terminar): 9
+  Opcion invalida, elija un numero del 0 al 5.
+Elija un producto (0 para terminar): 4
+  Agregado: Cafe ($4.50)  |  Subtotal: $9.75
+Elija un producto (0 para terminar): 3
+  Agregado: Huevos ($3.75)  |  Subtotal: $13.50
+Elija un producto (0 para terminar): 0
+Compra terminada.
+
+Productos comprados: 4
+TOTAL A PAGAR: $13.50

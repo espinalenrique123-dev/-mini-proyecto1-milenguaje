@@ -1,0 +1,4 @@
+=== BUSCADOR DE INVITADOS ===
+Escriba su nombre: Lucia
+Acceso permitido. Bienvenido(a), Lucia.
+Su numero de asiento es: 5

@@ -1,0 +1,5 @@
+=== BUSCADOR DE NUMERO MAYOR Y MENOR ===
+Arreglo: [34, 12, 89, 5, 67, 23, 91, 4, 50, 18]
+
+Numero mayor: 91 (indice 6)
+Numero menor: 4 (indice 7)

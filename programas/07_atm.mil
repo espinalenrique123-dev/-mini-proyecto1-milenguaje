@@ -1,0 +1,83 @@
+// ======================================================
+// 07_atm.mil - Cajero Automatico (ATM)
+// 1. Pide el PIN (1234). Hay 3 intentos; si se fallan los 3,
+//    la cuenta se bloquea y el programa termina.
+// 2. Menu en bucle: consultar saldo, depositar, retirar, salir.
+// 3. Validaciones: no se deposita ni retira 0 o negativo, y no
+//    se puede retirar mas del saldo (sin sobregiros).
+// formato(saldo, 2) muestra el dinero con 2 decimales: 1000 -> "1000.00"
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:int PIN_CORRECTO = 1234;
+var:int MAX_INTENTOS = 3;
+var:float saldo = 1000.00;
+
+// ---------- Operaciones del cajero ----------
+func depositar(monto:float):void {
+    if monto <= 0 : {
+        print("  [!] No se permiten depositos de 0 o negativos.");
+    } else {
+        saldo = saldo + monto;
+        print("  Deposito exitoso. Nuevo saldo: $", formato(saldo, 2));
+    }
+}
+
+func retirar(monto:float):void {
+    if monto <= 0 : {
+        print("  [!] El monto a retirar debe ser mayor a cero.");
+    } else if monto > saldo : {
+        print("  [!] Fondos insuficientes. Su saldo es $", formato(saldo, 2));
+    } else {
+        saldo = saldo - monto;
+        print("  Retiro exitoso. Nuevo saldo: $", formato(saldo, 2));
+    }
+}
+
+// ---------- 1. Autenticacion ----------
+print("===== CAJERO AUTOMATICO =====");
+var:int pin = 0;
+var:int intentos = 0;
+var:bool autenticado = false;
+
+while intentos < MAX_INTENTOS && !autenticado : {
+    read("Ingrese su PIN de 4 digitos: ", pin);
+    intentos = intentos + 1;
+    if pin is PIN_CORRECTO : {
+        autenticado = true;
+    } else if intentos < MAX_INTENTOS : {
+        print("  PIN incorrecto. Le quedan ", MAX_INTENTOS - intentos, " intento(s).");
+    }
+}
+
+// ---------- 2. Menu principal ----------
+if !autenticado : {
+    print("  PIN incorrecto 3 veces. Cuenta BLOQUEADA. Comuniquese con su banco.");
+} else {
+    print("Bienvenido.");
+    var:int opcion = 0;
+    var:float monto = 0;
+    while true : {
+        print("");
+        print("1. Consultar saldo");
+        print("2. Depositar dinero");
+        print("3. Retirar dinero");
+        print("4. Salir");
+        read("Elija una opcion: ", opcion);
+
+        if opcion is 1 : {
+            print("  Su saldo actual es: $", formato(saldo, 2));
+        } else if opcion is 2 : {
+            read("  Monto a depositar: $", monto);
+            depositar(monto);
+        } else if opcion is 3 : {
+            read("  Monto a retirar: $", monto);
+            retirar(monto);
+        } else if opcion is 4 : {
+            print("Gracias por usar el cajero. Hasta luego.");
+            break;
+        } else {
+            print("  [!] Opcion invalida, elija del 1 al 4.");
+        }
+    }
+}

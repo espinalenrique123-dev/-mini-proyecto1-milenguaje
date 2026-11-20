@@ -1,0 +1,48 @@
+// ======================================================
+// 06_punto_venta.mil - Mini Punto de Venta (Arreglos Paralelos)
+// Dos arreglos del mismo tamano: uno con los nombres de los
+// productos y otro con sus precios (la posicion i de uno
+// corresponde a la posicion i del otro). Muestra el catalogo
+// con un for, deja elegir productos por numero y al final
+// calcula el total a pagar.
+// formato(numero, 2) muestra el dinero con 2 decimales: 1.5 -> "1.50"
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:str[] productos = ["Pan", "Leche", "Huevos", "Cafe", "Azucar"];
+var:float[] precios = [1.50, 2.00, 3.75, 4.50, 1.80];
+
+// Muestra el catalogo usando los dos arreglos a la vez
+func mostrar_catalogo():void {
+    print("---------- CATALOGO ----------");
+    for i = 0 to productos.length() - 1 : {
+        print("  ", i + 1, ". ", productos[i], "  $", formato(precios[i], 2));
+    }
+    print("  0. Terminar la compra");
+    print("------------------------------");
+}
+
+var:float total = 0;
+var:int cantidad_productos = 0;
+var:int opcion = -1;
+
+print("=== MINI PUNTO DE VENTA ===");
+mostrar_catalogo();
+
+// Se repite hasta que el usuario elija 0
+while opcion is not 0 : {
+    read("Elija un producto (0 para terminar): ", opcion);
+    if opcion is 0 : {
+        print("Compra terminada.");
+    } else if opcion >= 1 && opcion <= productos.length() : {
+        total = total + precios[opcion - 1];
+        cantidad_productos = cantidad_productos + 1;
+        print("  Agregado: ", productos[opcion - 1], " ($", formato(precios[opcion - 1], 2), ")  |  Subtotal: $", formato(total, 2));
+    } else {
+        print("  Opcion invalida, elija un numero del 0 al ", productos.length(), ".");
+    }
+}
+
+print("");
+print("Productos comprados: ", cantidad_productos);
+print("TOTAL A PAGAR: $", formato(total, 2));

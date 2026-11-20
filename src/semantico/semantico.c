@@ -9,6 +9,9 @@
  *  - IF: la condicion debe ser bool; cada bloque tiene su ambito
  *  - Arreglos: elementos del mismo tipo, indice int, metodos
  *    push / pop / length
+ *  - Proyecto Final: while (condicion bool), for (inicio, fin y
+ *    paso int), break solo dentro de un ciclo, read en una
+ *    variable simple, lista[i] = valor y el operador %
  * ============================================================ */
 #include <stdio.h>
 #include <stdarg.h>
@@ -17,6 +20,7 @@
 #include "symtab.h"
 
 static int errores = 0, advertencias = 0;
+int silenciar_advertencias = 0;   /* main.c lo activa en el modo -r (solo ejecutar) */
 
 static void error_sem(int linea, const char *fmt, ...) {
     va_list ap; va_start(ap, fmt);
@@ -26,14 +30,16 @@ static void error_sem(int linea, const char *fmt, ...) {
     errores++;
 }
 static void advertencia(int linea, const char *fmt, ...) {
+    advertencias++;
+    if (silenciar_advertencias) return;
     va_list ap; va_start(ap, fmt);
     printf("  [!] Advertencia (linea %d): ", linea);
     vprintf(fmt, ap); printf("\n");
     va_end(ap);
-    advertencias++;
 }
 
 static int es_numerico(TipoDato t) { return t == T_INT || t == T_FLOAT; }
+static int es_basico(TipoDato t)   { return t == T_INT || t == T_FLOAT || t == T_STR || t == T_BOOL; }
 static int es_op(Nodo *n, const char *op) { return strcmp(n->nombre, op) == 0; }
 
 /* Regla de compatibilidad: mismo tipo, o int -> float (promocion).
@@ -58,7 +64,8 @@ static int es_cero_literal(Nodo *n) {
 
 /* Funcion que se esta analizando (NULL = estamos en el programa principal) */
 static Simbolo *funcion_actual = NULL;
-static int bloques_abiertos = 0;   /* cuantos bloques if/else rodean a la sentencia actual */
+static int bloques_abiertos = 0;   /* cuantos bloques if/else/while/for rodean a la sentencia actual */
+static int ciclos_abiertos = 0;    /* cuantos while/for rodean a la sentencia actual (para break)    */
 
 static TipoDato revisar_expr(Nodo *e);
 
@@ -151,6 +158,23 @@ static TipoDato revisar_llamada(Nodo *e) {
     int n_args = 0;
     for (Nodo *a = e->a; a; a = a->sig) { revisar_expr(a); n_args++; }
 
+    /* Proyecto Final: funcion incluida formato(numero, decimales) -> str
+       formato(1.5, 2) devuelve "1.50" (sirve para mostrar dinero) */
+    if (!f && strcmp(e->nombre, "formato") == 0) {
+        if (n_args != 2) {
+            error_sem(e->linea, "la funcion 'formato' espera 2 argumentos (numero, decimales), "
+                      "pero recibio %d", n_args);
+            return e->tipo = T_ERROR;
+        }
+        TipoDato t1 = e->a->tipo, t2 = e->a->sig->tipo;
+        if (t1 != T_ERROR && !es_numerico(t1))
+            error_sem(e->linea, "el primer argumento de 'formato' debe ser int o float, se recibio %s",
+                      nombre_tipo(t1));
+        if (t2 != T_ERROR && t2 != T_INT)
+            error_sem(e->linea, "los decimales de 'formato' deben ser int, se recibio %s", nombre_tipo(t2));
+        if ((t1 != T_ERROR && !es_numerico(t1)) || (t2 != T_ERROR && t2 != T_INT)) return e->tipo = T_ERROR;
+        return e->tipo = T_STR;
+    }
     if (!f) {
         error_sem(e->linea, "la funcion '%s' no ha sido declarada", e->nombre);
         return e->tipo = T_ERROR;
@@ -226,8 +250,16 @@ static TipoDato revisar_expr(Nodo *e) {
         if (i == T_ERROR || d == T_ERROR) return e->tipo = T_ERROR;
         const char *op = e->nombre;
 
+        /* Residuo: % (solo con int) */
+        if (es_op(e, "%")) {
+            if (es_cero_literal(e->b)) {
+                error_sem(e->linea, "residuo (%%) entre cero");
+                return e->tipo = T_ERROR;
+            }
+            if (i == T_INT && d == T_INT) return e->tipo = T_INT;
+        }
         /* Aritmeticos: + - * / */
-        if (es_op(e, "+") || es_op(e, "-") || es_op(e, "*") || es_op(e, "/")) {
+        else if (es_op(e, "+") || es_op(e, "-") || es_op(e, "*") || es_op(e, "/")) {
             if (es_op(e, "/") && es_cero_literal(e->b)) {
                 error_sem(e->linea, "division entre cero");
                 return e->tipo = T_ERROR;
@@ -236,6 +268,9 @@ static TipoDato revisar_expr(Nodo *e) {
                 return e->tipo = (i == T_INT && d == T_INT) ? T_INT : T_FLOAT;
             if (es_op(e, "+") && i == T_STR && d == T_STR)
                 return e->tipo = T_STR;          /* concatenacion */
+            /* Proyecto Final: texto + numero (o bool) tambien concatena: "Nota " + 5 -> "Nota 5" */
+            if (es_op(e, "+") && (i == T_STR || d == T_STR) && es_basico(i) && es_basico(d))
+                return e->tipo = T_STR;
         }
         /* Relacionales: < > <= >= */
         else if (es_op(e, "<") || es_op(e, ">") || es_op(e, "<=") || es_op(e, ">=")) {
@@ -279,18 +314,34 @@ static Simbolo *declarar(const char *nombre, TipoDato t, Categoria cat, int line
 static void revisar_funcion(Nodo *f);
 static void revisar_sentencia(Nodo *s);
 
-/* Revisa un bloque { ... } del if/else dentro de su propio ambito */
-static void revisar_bloque(Nodo *bloque, int linea_if) {
+/* Entra al ambito de un bloque { ... }: if:12, else:12, while:20, for:30
+   (dentro de una funcion: promedio>for30) */
+static void entrar_bloque(Nodo *bloque, int linea) {
     char nombre[64];
     if (funcion_actual)
-        snprintf(nombre, sizeof nombre, "%s>%s%d", funcion_actual->nombre, bloque->nombre, linea_if);
+        snprintf(nombre, sizeof nombre, "%s>%s%d", funcion_actual->nombre, bloque->nombre, linea);
     else
-        snprintf(nombre, sizeof nombre, "%s:%d", bloque->nombre, linea_if);
+        snprintf(nombre, sizeof nombre, "%s:%d", bloque->nombre, linea);
     ts_entrar_ambito(nombre);
     bloques_abiertos++;
-    for (Nodo *s = bloque->a; s; s = s->sig) revisar_sentencia(s);
+}
+static void salir_bloque(void) {
     bloques_abiertos--;
     ts_salir_ambito();
+}
+
+/* Revisa un bloque { ... } (if, else, while) dentro de su propio ambito */
+static void revisar_bloque(Nodo *bloque, int linea) {
+    entrar_bloque(bloque, linea);
+    for (Nodo *s = bloque->a; s; s = s->sig) revisar_sentencia(s);
+    salir_bloque();
+}
+
+/* Cuerpo de un ciclo: igual que un bloque, pero ahi se permite 'break' */
+static void revisar_cuerpo_ciclo(Nodo *bloque, int linea) {
+    ciclos_abiertos++;
+    revisar_bloque(bloque, linea);
+    ciclos_abiertos--;
 }
 
 /* 1 si la sentencia termina SIEMPRE con return (por todos los caminos) */
@@ -310,8 +361,18 @@ static int tiene_algun_return(Nodo *l) {
         if (l->clase == N_RETORNO) return 1;
         if (l->clase == N_SI && (tiene_algun_return(l->b->a) || (l->c && tiene_algun_return(l->c->a))))
             return 1;
+        /* un return dentro de un ciclo cuenta, pero el ciclo podria no repetirse ni una vez */
+        if (l->clase == N_MIENTRAS && tiene_algun_return(l->b->a)) return 1;
+        if (l->clase == N_PARA && tiene_algun_return(l->c->a)) return 1;
     }
     return 0;
+}
+
+/* Revisa que una expresion del for (inicio, fin o paso) sea int */
+static void revisar_parte_for(Nodo *e, const char *parte, int linea) {
+    TipoDato t = revisar_expr(e);
+    if (t != T_ERROR && t != T_INT)
+        error_sem(linea, "el %s del 'for' debe ser int, pero es de tipo %s", parte, nombre_tipo(t));
 }
 
 static void revisar_sentencia(Nodo *s) {
@@ -356,13 +417,16 @@ static void revisar_sentencia(Nodo *s) {
         break;
     }
     case N_IMPRIMIR: {
-        TipoDato t = revisar_expr(s->a);
-        if (t == T_VOID && s->a->clase == N_METODO)
-            error_sem(s->linea, "no se puede imprimir '%s.%s(...)' porque no devuelve un valor",
-                      s->a->nombre, s->a->sval);
-        else if (t == T_VOID)
-            error_sem(s->linea, "no se puede imprimir el resultado de '%s' porque es una funcion void",
-                      s->a->nombre);
+        /* print puede recibir varios valores: print("Total: ", total); */
+        for (Nodo *x = s->a; x; x = x->sig) {
+            TipoDato t = revisar_expr(x);
+            if (t == T_VOID && x->clase == N_METODO)
+                error_sem(s->linea, "no se puede imprimir '%s.%s(...)' porque no devuelve un valor",
+                          x->nombre, x->sval);
+            else if (t == T_VOID)
+                error_sem(s->linea, "no se puede imprimir el resultado de '%s' porque es una funcion void",
+                          x->nombre);
+        }
         break;
     }
     case N_LLAMADA:            /* llamada usada como sentencia: f(x); */
@@ -406,6 +470,84 @@ static void revisar_sentencia(Nodo *s) {
             error_sem(s->linea, "la condicion del 'if' debe ser bool, pero es de tipo %s", nombre_tipo(t));
         revisar_bloque(s->b, s->linea);
         if (s->c) revisar_bloque(s->c, s->linea);
+        break;
+    }
+
+    /* ---------------- Proyecto Final ---------------- */
+    case N_MIENTRAS: {
+        /* La condicion del while debe ser bool, igual que en el if */
+        TipoDato t = revisar_expr(s->a);
+        s->tipo = T_BOOL;
+        if (t != T_ERROR && t != T_BOOL)
+            error_sem(s->linea, "la condicion del 'while' debe ser bool, pero es de tipo %s", nombre_tipo(t));
+        revisar_cuerpo_ciclo(s->b, s->linea);
+        break;
+    }
+    case N_PARA: {
+        /* inicio, fin y paso se revisan afuera: no pueden usar la variable del for */
+        revisar_parte_for(s->a, "inicio", s->linea);
+        revisar_parte_for(s->b, "fin", s->linea);
+        if (s->d) {
+            revisar_parte_for(s->d, "paso (step)", s->linea);
+            if (s->d->clase == N_LIT_INT && s->d->ival == 0)
+                error_sem(s->linea, "el paso (step) del 'for' no puede ser 0");
+        }
+        /* La variable del for es int y solo existe dentro del ciclo */
+        entrar_bloque(s->c, s->linea);
+        Simbolo *v = declarar(s->nombre, T_INT, S_VARIABLE, s->linea);
+        if (v) { v->inicializada = 1; v->usos++; s->sim = v; }   /* el for la lee al comparar */
+        s->tipo = T_INT;
+        ciclos_abiertos++;
+        for (Nodo *x = s->c->a; x; x = x->sig) revisar_sentencia(x);
+        ciclos_abiertos--;
+        salir_bloque();
+        break;
+    }
+    case N_ROMPER:
+        if (!ciclos_abiertos)
+            error_sem(s->linea, "'break' solo se puede usar dentro de un ciclo while o for");
+        break;
+    case N_LEER: {
+        /* read("mensaje", x): el mensaje (opcional) se muestra antes de leer */
+        if (s->a) {
+            TipoDato tm = revisar_expr(s->a);
+            if (tm == T_VOID)
+                error_sem(s->linea, "el mensaje de 'read' no puede ser una funcion void");
+            else if (es_arreglo(tm))
+                error_sem(s->linea, "el mensaje de 'read' debe ser un texto, no un arreglo");
+        }
+        Simbolo *sim = ts_buscar(s->nombre);
+        if (!sim) {
+            error_sem(s->linea, "no se puede leer en '%s': la variable no ha sido declarada", s->nombre);
+            return;
+        }
+        if (sim->categoria == S_FUNCION) {
+            error_sem(s->linea, "no se puede leer en '%s' porque es una funcion", s->nombre);
+            return;
+        }
+        if (es_arreglo(sim->tipo)) {
+            error_sem(s->linea, "no se puede leer directo en el arreglo '%s'; lea en una variable "
+                      "y luego use %s.push(...) o %s[i] = ...", s->nombre, s->nombre, s->nombre);
+            return;
+        }
+        s->sim = sim;
+        s->tipo = sim->tipo;
+        sim->inicializada = 1;
+        break;
+    }
+    case N_ASIG_INDICE: {
+        /* lista[i] = valor: el indice es int y el valor del tipo de los elementos */
+        TipoDato ti = revisar_expr(s->a);
+        TipoDato tv = revisar_expr(s->b);
+        Simbolo *arr = buscar_arreglo(s);
+        if (ti != T_ERROR && ti != T_INT)
+            error_sem(s->linea, "el indice de '%s' debe ser int, pero es de tipo %s", s->nombre, nombre_tipo(ti));
+        if (!arr) return;
+        TipoDato elem = tipo_elemento(arr->tipo);
+        s->tipo = elem;
+        if (tv != T_ERROR && !compatible(elem, tv))
+            error_sem(s->linea, "no se puede guardar un valor %s en el arreglo '%s' que es %s",
+                      nombre_tipo(tv), s->nombre, nombre_tipo(arr->tipo));
         break;
     }
     default: break;
@@ -464,6 +606,7 @@ int analizar_semantica(Nodo *programa, int *adv) {
     errores = advertencias = 0;
     funcion_actual = NULL;
     bloques_abiertos = 0;
+    ciclos_abiertos = 0;
     ts_iniciar();
     for (Nodo *s = programa->a; s; s = s->sig) revisar_sentencia(s);
 

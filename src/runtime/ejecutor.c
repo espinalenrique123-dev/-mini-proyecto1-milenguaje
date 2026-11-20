@@ -9,10 +9,15 @@
  *
  * Arreglos (semana 9): la variable guarda un puntero al arreglo;
  * los elementos viven en arreglos.c.
+ *
+ * Proyecto Final: ciclos while y for, break, read (lee lo que
+ * escribe el usuario), lista[i] = valor y el operador %.
  * ============================================================ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
+#include <unistd.h>
 #include "ejecutor.h"
 #include "symtab.h"
 #include "arreglos.h"
@@ -24,6 +29,11 @@ static Valor *marco_actual = NULL; /* variables locales de la funcion en curso *
 static int profundidad = 0;
 static int retornando = 0;         /* 1 cuando se ejecuto un return  */
 static Valor valor_retorno;
+static int rompiendo = 0;          /* 1 cuando se ejecuto un break   */
+#define MAX_VUELTAS 1000000        /* limite de vueltas de un ciclo (ciclo infinito?) */
+
+/* Texto que va antes de cada print: "  > " en el modo normal, nada en el modo -r */
+const char *prefijo_salida = "  > ";
 
 /* Lee o escribe una variable: local (en el marco) o global (en la tabla) */
 static Valor leer(Simbolo *s) {
@@ -127,6 +137,15 @@ static Valor evaluar(Nodo *e) {
 
     case N_LLAMADA: {
         Simbolo *f = (Simbolo *)e->sim;
+        if (!f) {                 /* funcion incluida: formato(numero, decimales) */
+            Valor num = evaluar(e->a), dec = evaluar(e->a->sig);
+            if (error_ejecucion) return r;
+            int d = dec.i < 0 ? 0 : (dec.i > 10 ? 10 : (int)dec.i);
+            char buf[64];
+            snprintf(buf, sizeof buf, "%.*f", d, como_double(num));
+            r.s = strdup(buf);
+            break;
+        }
         if (profundidad >= MAX_PROFUNDIDAD) {
             printf("  [X] Error de ejecucion (linea %d): demasiadas llamadas anidadas a '%s' "
                    "(recursion infinita?)\n", e->linea, f->nombre);
@@ -176,18 +195,23 @@ static Valor evaluar(Nodo *e) {
 
         if (strcmp(op, "&&") == 0 || strcmp(op, "||") == 0) { r.i = y.i; break; }
 
-        if (strchr("+-*/", op[0]) && op[1] == '\0') {
+        if (strchr("+-*/%", op[0]) && op[1] == '\0') {
             if (e->tipo == T_STR) {                         /* concatenacion */
-                char *s = malloc(strlen(x.s) + strlen(y.s) + 1);
-                strcpy(s, x.s); strcat(s, y.s); r.s = s;
+                char tx[1024], ty[1024];                    /* "Nota " + 5 -> "Nota 5" */
+                valor_a_texto(x, tx, sizeof tx);
+                valor_a_texto(y, ty, sizeof ty);
+                char *s = malloc(strlen(tx) + strlen(ty) + 1);
+                strcpy(s, tx); strcat(s, ty); r.s = s;
             } else if (e->tipo == T_INT) {
-                if (op[0] == '/' && y.i == 0) {
-                    printf("  [X] Error de ejecucion (linea %d): division entre cero\n", e->linea);
+                if ((op[0] == '/' || op[0] == '%') && y.i == 0) {
+                    printf("  [X] Error de ejecucion (linea %d): %s entre cero\n", e->linea,
+                           op[0] == '/' ? "division" : "residuo (%)");
                     error_ejecucion = 1; return r;
                 }
                 switch (op[0]) {
                     case '+': r.i = x.i + y.i; break; case '-': r.i = x.i - y.i; break;
                     case '*': r.i = x.i * y.i; break; case '/': r.i = x.i / y.i; break;
+                    case '%': r.i = x.i % y.i; break;
                 }
             } else {                                        /* float */
                 double a = como_double(x), b = como_double(y);
@@ -222,6 +246,71 @@ static Valor evaluar(Nodo *e) {
     return r;
 }
 
+/* ---------------- read (Proyecto Final) ----------------
+   Muestra el mensaje (si hay), lee una linea del teclado y la convierte al
+   tipo de la variable. Si lo escrito no es valido, lo vuelve a pedir. */
+static int leer_linea(char *buf, int tam) {
+    if (!fgets(buf, tam, stdin)) return 0;
+    buf[strcspn(buf, "\r\n")] = '\0';
+    return 1;
+}
+
+static void ejecutar_lectura(Nodo *s) {
+    Simbolo *sim = (Simbolo *)s->sim;
+    Valor v = { sim->tipo, 0, 0.0, "", NULL };
+    char msg[1024] = "";
+    if (s->a) {
+        Valor m = evaluar(s->a);
+        if (error_ejecucion) return;
+        valor_a_texto(m, msg, sizeof msg);
+    }
+    for (;;) {
+        printf("%s%s", prefijo_salida, msg);
+        fflush(stdout);
+        char linea[1024];
+        if (!leer_linea(linea, sizeof linea)) {
+            printf("\n  [X] Error de ejecucion (linea %d): no hay mas datos para leer en '%s'\n",
+                   s->linea, s->nombre);
+            error_ejecucion = 1; return;
+        }
+        if (!isatty(0)) printf("%s\n", linea);   /* datos desde archivo: se muestran */
+        char *fin;
+        errno = 0;
+        if (sim->tipo == T_INT) {
+            v.i = strtoll(linea, &fin, 10);
+            while (*fin == ' ') fin++;
+            if (fin != linea && *fin == '\0' && errno == 0) break;
+            printf("  [!] '%s' no es un numero entero. Intente de nuevo.\n", linea);
+        } else if (sim->tipo == T_FLOAT) {
+            v.f = strtod(linea, &fin);
+            while (*fin == ' ') fin++;
+            if (fin != linea && *fin == '\0' && errno == 0) break;
+            printf("  [!] '%s' no es un numero. Intente de nuevo.\n", linea);
+        } else if (sim->tipo == T_BOOL) {
+            if (!strcmp(linea, "true"))  { v.i = 1; break; }
+            if (!strcmp(linea, "false")) { v.i = 0; break; }
+            printf("  [!] Escriba true o false. Intente de nuevo.\n");
+        } else {                                    /* str: se guarda tal cual */
+            v.s = strdup(linea);
+            break;
+        }
+    }
+    escribir(sim, v);
+}
+
+/* Revisa si el ciclo debe terminar por break, return, error o demasiadas vueltas */
+static int ciclo_terminado(long vueltas, int linea) {
+    if (rompiendo) { rompiendo = 0; return 1; }     /* break: sale solo de este ciclo */
+    if (retornando || error_ejecucion) return 1;
+    if (vueltas >= MAX_VUELTAS) {
+        printf("  [X] Error de ejecucion (linea %d): el ciclo dio mas de %d vueltas "
+               "(ciclo infinito?)\n", linea, MAX_VUELTAS);
+        error_ejecucion = 1;
+        return 1;
+    }
+    return 0;
+}
+
 /* Ejecuta una sentencia */
 static void ejecutar_sentencia(Nodo *s) {
     switch (s->clase) {
@@ -238,13 +327,14 @@ static void ejecutar_sentencia(Nodo *s) {
         if (!error_ejecucion) escribir((Simbolo *)s->sim, v);
         break;
     }
-    case N_IMPRIMIR: {
-        Valor v = evaluar(s->a);
-        if (!error_ejecucion) {
+    case N_IMPRIMIR: {         /* print(a, b, c): los valores se escriben seguidos */
+        char linea[4096] = "";
+        for (Nodo *x = s->a; x && !error_ejecucion; x = x->sig) {
             char buf[1024];
-            valor_a_texto(v, buf, sizeof buf);
-            printf("  > %s\n", buf);
+            valor_a_texto(evaluar(x), buf, sizeof buf);
+            strncat(linea, buf, sizeof linea - strlen(linea) - 1);
         }
+        if (!error_ejecucion) printf("%s%s\n", prefijo_salida, linea);
         break;
     }
     case N_LLAMADA:            /* f(x);  el valor devuelto se descarta */
@@ -262,20 +352,80 @@ static void ejecutar_sentencia(Nodo *s) {
         else if (s->c)  ejecutar_lista(s->c->a);   /* condicion false -> bloque else */
         break;
     }
+
+    /* ---------------- Proyecto Final ---------------- */
+    case N_MIENTRAS: {         /* while: repite el bloque mientras la condicion sea true */
+        long vueltas = 0;
+        for (;;) {
+            Valor c = evaluar(s->a);
+            if (error_ejecucion || !c.i) break;
+            ejecutar_lista(s->b->a);
+            if (ciclo_terminado(++vueltas, s->linea)) break;
+        }
+        break;
+    }
+    case N_PARA: {             /* for i = ini to fin step p: el fin se incluye */
+        Simbolo *var = (Simbolo *)s->sim;
+        Valor ini = evaluar(s->a), fin = evaluar(s->b);
+        Valor paso = { T_INT, 1, 0.0, "", NULL };
+        if (s->d) paso = evaluar(s->d);
+        if (error_ejecucion) break;
+        if (paso.i == 0) {
+            printf("  [X] Error de ejecucion (linea %d): el paso (step) del 'for' es 0 "
+                   "y el ciclo nunca terminaria\n", s->linea);
+            error_ejecucion = 1; break;
+        }
+        escribir(var, ini);
+        long vueltas = 0;
+        for (;;) {
+            long long i = leer(var).i;
+            if (paso.i > 0 ? i > fin.i : i < fin.i) break;   /* ya paso el fin */
+            ejecutar_lista(s->c->a);
+            if (ciclo_terminado(++vueltas, s->linea)) break;
+            Valor sig = { T_INT, leer(var).i + paso.i, 0.0, "", NULL };
+            escribir(var, sig);
+        }
+        break;
+    }
+    case N_ROMPER:
+        rompiendo = 1;
+        break;
+    case N_LEER:
+        ejecutar_lectura(s);
+        break;
+    case N_ASIG_INDICE: {      /* lista[i] = valor */
+        Valor idx = evaluar(s->a);
+        Valor v = evaluar(s->b);
+        if (error_ejecucion) break;
+        Arreglo *a = leer((Simbolo *)s->sim).arr;
+        int largo = a ? a->largo : 0;
+        if (idx.i < 0 || idx.i >= largo) {
+            if (largo == 0)
+                printf("  [X] Error de ejecucion (linea %d): el indice %lld no existe, "
+                       "el arreglo '%s' esta vacio (use push para agregar)\n", s->linea, idx.i, s->nombre);
+            else
+                printf("  [X] Error de ejecucion (linea %d): el indice %lld esta fuera del arreglo '%s' "
+                       "(indices validos: 0 a %d)\n", s->linea, idx.i, s->nombre, largo - 1);
+            error_ejecucion = 1; break;
+        }
+        a->items[idx.i] = convertir(v, a->tipo_elem);
+        break;
+    }
     case N_FUNCION:            /* la declaracion no se ejecuta; solo las llamadas */
     default: break;
     }
 }
 
-/* Ejecuta una lista de sentencias hasta el final, un return o un error */
+/* Ejecuta una lista de sentencias hasta el final, un return, un break o un error */
 static void ejecutar_lista(Nodo *lista) {
-    for (Nodo *s = lista; s && !error_ejecucion && !retornando; s = s->sig)
+    for (Nodo *s = lista; s && !error_ejecucion && !retornando && !rompiendo; s = s->sig)
         ejecutar_sentencia(s);
 }
 
 int ejecutar(Nodo *programa) {
     error_ejecucion = 0;
     retornando = 0;
+    rompiendo = 0;
     profundidad = 0;
     marco_actual = NULL;
     /* La memoria arranca con valores por defecto: 0, 0.0, "", false */

@@ -1,0 +1,45 @@
+// ======================================================
+// 01_calificaciones.mil - Calculadora de Calificaciones
+// Pide las notas de 5 estudiantes, las guarda en un arreglo
+// y con un ciclo for calcula el promedio, los aprobados
+// (nota >= 60) y los reprobados.
+// Moises Moncada - Proyecto Final - Compiladores
+// ======================================================
+
+var:int cantidad = 5;
+var:float[] notas = [];
+var:float nota = 0;
+
+print("=== CALCULADORA DE CALIFICACIONES ===");
+
+// 1. Pedir las notas y guardarlas en el arreglo
+for i = 1 to cantidad : {
+    read("Nota del estudiante " + i + ": ", nota);
+    // la nota debe estar entre 0 y 100; si no, se vuelve a pedir
+    while nota < 0 || nota > 100 : {
+        print("  La nota debe estar entre 0 y 100.");
+        read("Nota del estudiante " + i + ": ", nota);
+    }
+    notas.push(nota);
+}
+
+// 2. Recorrer el arreglo con un for
+var:float suma = 0;
+var:int aprobados = 0;
+var:int reprobados = 0;
+for i = 0 to notas.length() - 1 : {
+    suma = suma + notas[i];
+    if notas[i] >= 60 : {
+        aprobados = aprobados + 1;
+    } else {
+        reprobados = reprobados + 1;
+    }
+}
+
+// 3. Mostrar los resultados
+var:float promedio = suma / notas.length();
+print("");
+print("Notas ingresadas: ", notas);
+print("Promedio general: ", promedio);
+print("Aprobados (>= 60): ", aprobados);
+print("Reprobados (< 60): ", reprobados);

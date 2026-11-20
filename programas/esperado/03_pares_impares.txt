@@ -1,0 +1,14 @@
+=== CLASIFICADOR DE PARES E IMPARES ===
+Numero 1 de 8: 4
+Numero 2 de 8: 7
+Numero 3 de 8: 10
+Numero 4 de 8: 13
+Numero 5 de 8: 22
+Numero 6 de 8: 35
+Numero 7 de 8: 8
+Numero 8 de 8: 1
+
+Numeros: [4, 7, 10, 13, 22, 35, 8, 1]
+Cantidad de pares: 4
+Cantidad de impares: 4
+Suma de los pares: 44
