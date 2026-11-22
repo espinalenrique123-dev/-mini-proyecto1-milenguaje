@@ -26,7 +26,7 @@ correr() {
     clear
     echo -e "${C}==================== Ejecutando $1 ====================${R}"
     echo
-    ./milenguaje -r "$1" | ./colores.sh
+    ./milenguaje -r "$1"
     echo
     echo -e "${V}(fin del programa)${R}"
     pausa
